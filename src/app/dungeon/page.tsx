@@ -328,7 +328,7 @@ export default function DungeonPage() {
                 迷宮選択 ＆ 出撃準備
               </h1>
               <p className="mt-1 text-xs text-[#A89F8E]">
-                所持語彙から毎回ランダム選出（常×4・良×2）＋エース1枚で潜入。道中でマイ辞書（{save.deckPoolTerms.length}枚）から3択ドロップし、遺物（挑戦ごとリセット）で青天井を構築せよ。
+                所持語彙から毎回ランダム選出（常×4・良×2）＋エース1枚で潜入。道中でマイ辞書（{save.deckPoolTerms.length}枚）から3択ドロップし、遺物の組み合わせで強大な言霊を構築せよ。
               </p>
             </div>
             <Link

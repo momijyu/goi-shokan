@@ -11,7 +11,7 @@ export function AttributeGuideBar() {
             枠の色＝属性の意味・バトル効果
           </span>
           <span className="font-sans text-[11px] text-[#968E7E]">
-            同属性を連続で使うと『雪だるま式』等の遺物シナジーが発動
+            同属性を連続で使うと『雪だるま式』等の遺物効果が発動
           </span>
         </div>
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">

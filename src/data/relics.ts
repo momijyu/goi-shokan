@@ -57,7 +57,7 @@ export const RELIC_LIST: RelicDef[] = [
     name: "雪だるま式・語彙狂",
     rankLabel: "乗算",
     category: "scaling",
-    description: "同じ属性の語彙を連続で切るたび、戦闘中の全乗算倍率 ×1.5（青天井累積）。",
+    description: "同じ属性の語彙を連続で切るたび、戦闘中の全乗算倍率 ×1.5（上限なく累積）。",
     flavor: "同じ響きを重ねるほど、文脈は雪崩となる。",
   },
   {

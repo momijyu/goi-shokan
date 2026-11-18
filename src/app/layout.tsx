@@ -15,11 +15,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteBaseUrl),
   title: "語彙召喚(仮) | GOI-SHOKAN(KARI)",
   description:
-    "日常の文章から語彙を採掘し、青天井のシナジーで迷宮に挑む語彙デッキ構築ローグライク",
+    "日常の文章から語彙を採掘し、紡いだ言葉の力で迷宮に挑む語彙デッキ構築ローグライク",
   openGraph: {
     title: "語彙召喚(仮) | GOI-SHOKAN(KARI)",
     description:
-      "日常の文章から語彙を採掘し、青天井のシナジーで迷宮に挑む語彙デッキ構築ローグライク",
+      "日常の文章から語彙を採掘し、紡いだ言葉の力で迷宮に挑む語彙デッキ構築ローグライク",
     type: "website",
     locale: "ja_JP",
     siteName: "語彙召喚(仮)",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "語彙召喚(仮) | GOI-SHOKAN(KARI)",
     description:
-      "日常の文章から語彙を採掘し、青天井のシナジーで迷宮に挑む語彙デッキ構築ローグライク",
+      "日常の文章から語彙を採掘し、紡いだ言葉の力で迷宮に挑む語彙デッキ構築ローグライク",
   },
 };
 
