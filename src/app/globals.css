@@ -1,26 +1,134 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-serif: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  --font-pixel: "DotGothic16", "JetBrains Mono", monospace;
+  --font-mono: "JetBrains Mono", monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: #0b0a0e;
+  --foreground: #ece6d8;
+  --card: #131117;
+  --card-foreground: #ece6d8;
+  --popover: #141218;
+  --popover-foreground: #ece6d8;
+  --primary: #c93a2b;
+  --primary-foreground: #f7f3ea;
+  --secondary: #1d1a23;
+  --secondary-foreground: #dcd4c2;
+  --muted: #1b1820;
+  --muted-foreground: #968e7e;
+  --accent: #25212c;
+  --accent-foreground: #ece6d8;
+  --destructive: #c93a2b;
+  --border: #322c26;
+  --input: #2c2724;
+  --ring: #d4af37;
+  --radius: 0px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    background-color: #0b0a0e;
+    color: #ece6d8;
+    color-scheme: dark;
+  }
+  body {
+    background-color: #0b0a0e;
+    color: #ece6d8;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(138, 115, 72, 0.08) 0%, transparent 55%),
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.012) 0px,
+        rgba(255, 255, 255, 0.012) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Sharp pixel rendering for retro sprites */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Corner bracket frame accent (Hanafuda / Japanese arcade cabinet border) */
+.kaku-frame {
+  position: relative;
+  border: 1px solid #3a332a;
+  background-color: #121016;
+}
+.kaku-frame::before,
+.kaku-frame::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+.kaku-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid #8a7348;
+  border-left: 2px solid #8a7348;
+}
+.kaku-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 2px solid #8a7348;
+  border-bottom: 2px solid #8a7348;
+}
+
+/* Subtle scanline texture for battle stage */
+.stage-grid {
+  background-image:
+    linear-gradient(rgba(138, 115, 72, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138, 115, 72, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0a0e;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a332a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8a7348;
 }
