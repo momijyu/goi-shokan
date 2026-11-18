@@ -53,6 +53,7 @@ import {
   startNewRun,
   type RunState,
 } from "@/lib/battleEngine";
+import { submitRankingScore } from "@/lib/rankings";
 import { recordRunResultInSave } from "@/lib/storage";
 import {
   ATTR_META,
@@ -263,6 +264,20 @@ export default function DungeonPage() {
       hadFCardInDeck: hadF,
     });
     setSave(nextSave);
+    if (finalRun.maxDamageDealt > 0) {
+      void submitRankingScore({
+        runId: finalRun.runId,
+        playerName: save.guestName,
+        stageId: finalRun.stageId,
+        stageName: finalRun.stageName,
+        isDaily: finalRun.isDaily,
+        dailyDate: finalRun.isDaily ? getTodayJstDateKey() : null,
+        cleared,
+        reachedFloor: finalRun.floor,
+        maxDamage: finalRun.maxDamageDealt,
+        relicIds: finalRun.relicIds,
+      });
+    }
   };
 
   const handleStartStage = (stageId: string, isDaily: boolean) => {

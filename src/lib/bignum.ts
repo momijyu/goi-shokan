@@ -131,8 +131,7 @@ export function createSeededRng(seed: number): () => number {
   };
 }
 
-export function getTodayJstDateKey(): string {
-  const now = new Date();
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+export function getTodayJstDateKey(date: Date = new Date()): string {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 10);
 }
