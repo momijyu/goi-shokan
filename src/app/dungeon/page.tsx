@@ -252,6 +252,7 @@ export default function DungeonPage() {
   const [deckTab, setDeckTab] = useState<"all" | "draw" | "discard">("all");
   const [activeRelicDetail, setActiveRelicDetail] = useState<RelicDef | null>(null);
   const [routeOpenMobile, setRouteOpenMobile] = useState(false);
+  const [selectedRewardCardId, setSelectedRewardCardId] = useState<string | null>(null);
 
   useEffect(() => {
     setMobileBattleFullscreen(Boolean(run));
@@ -634,7 +635,7 @@ export default function DungeonPage() {
           </div>
         </div>
 
-        {/* Mobile Route Collapsible Bar (Always expanded outside battle; collapsible during battle to fit 1 screen) */}
+        {/* Mobile Route Collapsible Bar (Always expanded outside battle/card reward; collapsible during battle/reward to keep 1-screen fit) */}
         <div className="border border-[#2E2822] bg-[#100E14] px-2.5 py-1.5 lg:hidden">
           <button
             type="button"
@@ -647,11 +648,13 @@ export default function DungeonPage() {
             </span>
             <ChevronDown
               className={`h-3.5 w-3.5 shrink-0 text-[#8A7348] transition-transform ${
-                routeOpenMobile || run.phase !== "battle" ? "rotate-180" : ""
+                routeOpenMobile || (run.phase !== "battle" && run.phase !== "reward_card")
+                  ? "rotate-180"
+                  : ""
               }`}
             />
           </button>
-          {(routeOpenMobile || run.phase !== "battle") && (
+          {(routeOpenMobile || (run.phase !== "battle" && run.phase !== "reward_card")) && (
             <div className="mt-1.5 flex items-center gap-1 overflow-x-auto border-t border-[#221D18] pt-1.5 pb-0.5">
               {buildDungeonRouteNodes(run).map((node, idx, arr) => {
                 const isCurrent = node.status === "current";
@@ -1305,39 +1308,168 @@ export default function DungeonPage() {
         )}
 
         {/* === REWARD: CARD 3-CHOICE === */}
-        {run.phase === "reward_card" && (
-          <div className="kaku-frame space-y-4 p-4 sm:p-5">
-            <div>
-              <p className="font-mono text-[10px] text-[#8A7348]">VICTORY REWARD</p>
-              <h2 className="font-serif text-xl font-extrabold text-[#F2ECE0]">
-                語彙カードを1枚デッキに加える
-              </h2>
-              <p className="mt-1 text-xs text-[#A89F8E]">
-                マイ辞書からの抽選＋時折「お試し」高レアカードが出現します。
-              </p>
+        {run.phase === "reward_card" && (() => {
+          const selectedReward =
+            run.cardChoices.find((c) => c.instanceId === selectedRewardCardId) ?? null;
+          return (
+            <div className="kaku-frame space-y-3 p-3 sm:space-y-4 sm:p-5">
+              <div>
+                <p className="font-mono text-[10px] text-[#8A7348]">VICTORY REWARD</p>
+                <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0] sm:text-xl">
+                  語彙カードを1枚デッキに加える
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[#A89F8E] sm:mt-1 sm:text-xs">
+                  マイ辞書からの抽選＋時折「お試し」高レアカードが出現します。
+                </p>
+              </div>
+
+              {/* Mobile: Slay-the-Spire style 3-card animated rail + fixed detail slot */}
+              <div className="space-y-2.5 lg:hidden">
+                <div className="flex items-end justify-center gap-2 px-1 pt-4 pb-1">
+                  {run.cardChoices.map((c, idx) => {
+                    const isSelected = selectedReward?.instanceId === c.instanceId;
+                    return (
+                      <motion.div
+                        key={c.instanceId}
+                        layout
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={
+                          isSelected
+                            ? { opacity: 1, y: -10, scale: 1.05 }
+                            : { opacity: 1, y: 0, scale: 1 }
+                        }
+                        transition={{
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 28,
+                          opacity: { duration: 0.2, delay: idx * 0.05 },
+                        }}
+                        style={{ zIndex: isSelected ? 20 : idx + 1 }}
+                        className="relative shrink-0"
+                      >
+                        <WordCard
+                          word={c}
+                          plusLevel={c.plusLevel}
+                          selected={isSelected}
+                          isTemporaryTrial={c.isTemporaryTrial}
+                          compact
+                          disableLift
+                          className="w-[98px] min-h-[112px]"
+                          onClick={() =>
+                            setSelectedRewardCardId((prev) =>
+                              prev === c.instanceId ? null : c.instanceId
+                            )
+                          }
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Fixed-height Detail Preview Box */}
+                <div className="flex min-h-[82px] flex-col justify-center border border-[#3A332A] bg-[#17141D] px-3 py-2 text-xs text-[#DCD4C2]">
+                  {selectedReward ? (() => {
+                    const rStats = getEffectiveStats(selectedReward, selectedReward.plusLevel);
+                    const rAttr = ATTR_META[selectedReward.attribute];
+                    const rRank = RANK_META[selectedReward.rank];
+                    const rSkill = SKILL_META[selectedReward.skillType];
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              style={{ color: rRank.color }}
+                              className="shrink-0 font-serif font-bold"
+                            >
+                              [{rRank.kanji}]
+                            </span>
+                            <strong className="truncate font-serif text-sm text-[#F4D06F]">
+                              {selectedReward.term}
+                            </strong>
+                            <span className="truncate text-[#8E8678]">
+                              ({selectedReward.reading})
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="text-[#ECE6D8]">{selectedReward.cost}コス</span>
+                            <span className="text-[#F07167]">攻{rStats.atk}</span>
+                            <span className="text-[#69A3D9]">防{rStats.def}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span style={{ color: rAttr.color }} className="font-bold">
+                            {rAttr.label} [{rAttr.roleHint}]
+                          </span>
+                          <span
+                            style={{ color: rSkill.color }}
+                            className="border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-mono font-bold"
+                          >
+                            {rSkill.shortTag}
+                          </span>
+                        </div>
+                        <p className="text-[11px] leading-snug text-[#CFC8B8]">
+                          {selectedReward.skillDesc}
+                        </p>
+                      </div>
+                    );
+                  })() : (
+                    <p className="text-center font-mono text-[11px] text-[#787166]">
+                      上のカードをタップして能力を比較・選択してください
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!selectedReward}
+                  onClick={() => {
+                    if (!selectedReward) return;
+                    setRun(chooseCardReward(run, selectedReward));
+                    setSelectedRewardCardId(null);
+                  }}
+                  className={`w-full border py-2.5 font-serif text-sm font-extrabold tracking-wider transition-colors ${
+                    selectedReward
+                      ? "border-[#D4AF37] bg-[#261E0E] text-[#F4D06F] hover:bg-[#352A14]"
+                      : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
+                  }`}
+                >
+                  {selectedReward
+                    ? `『${selectedReward.term}』をデッキに加える`
+                    : "カードを選択してください"}
+                </button>
+              </div>
+
+              {/* PC: Original 3-column full cards */}
+              <div className="hidden gap-2.5 lg:grid lg:grid-cols-3">
+                {run.cardChoices.map((c) => (
+                  <WordCard
+                    key={c.instanceId}
+                    word={c}
+                    plusLevel={c.plusLevel}
+                    isTemporaryTrial={c.isTemporaryTrial}
+                    onClick={() => {
+                      setRun(chooseCardReward(run, c));
+                      setSelectedRewardCardId(null);
+                    }}
+                  />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRun(chooseCardReward(run, null));
+                  setSelectedRewardCardId(null);
+                }}
+                className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-[11px] text-[#968E7E] hover:text-[#ECE6D8] sm:text-xs"
+              >
+                {run.relicIds.includes("black_pact_ascetic")
+                  ? "見送る（禁欲の代償：永続乗算 ×1.4 ＆ 永続基礎 +150）"
+                  : "見送る（デッキを薄く保ち HP+6 回復）"}
+              </button>
             </div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-              {run.cardChoices.map((c) => (
-                <WordCard
-                  key={c.instanceId}
-                  word={c}
-                  plusLevel={c.plusLevel}
-                  isTemporaryTrial={c.isTemporaryTrial}
-                  onClick={() => setRun(chooseCardReward(run, c))}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setRun(chooseCardReward(run, null))}
-              className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-xs text-[#968E7E] hover:text-[#ECE6D8]"
-            >
-              {run.relicIds.includes("black_pact_ascetic")
-                ? "見送る（禁欲の代償：永続乗算 ×1.4 ＆ 永続基礎 +150）"
-                : "見送る（デッキを薄く保ち HP+6 回復）"}
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* === REWARD: RELIC 3-CHOICE === */}
         {run.phase === "reward_relic" && (
