@@ -230,7 +230,10 @@ export function generateEndlessEnemy(floor: number, baseHp: number, rng: () => n
   const anchor = Math.max(baseHp, 3500);
   const rawHp = anchor * Math.pow(2.35, endlessDepth);
   const hp = Number.isFinite(rawHp) ? Math.min(1e300, Math.floor(rawHp)) : 1e300;
-  const atkScale = Math.min(85, Math.floor(22 + endlessDepth * 2));
+  const atkScale = Math.min(
+    260,
+    Math.floor(22 + endlessDepth * 4 + Math.pow(endlessDepth, 1.25))
+  );
   const isBoss = endlessDepth % 3 === 0;
 
   return {

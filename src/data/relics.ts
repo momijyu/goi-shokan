@@ -366,7 +366,7 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "黒契約",
     category: "covenant",
     isBlackCovenant: true,
-    description: "『極』『異』カードを発動するたび戦闘指数 +0.035 ＆ 戦闘乗算 ×2.2。代償として『常』『良』のコストがすべて +1 重くなる。",
+    description: "『極』『異』カードを発動するたび戦闘指数 +0.035（1戦闘内合計 +0.75 まで）＆ 戦闘乗算 ×2.2。代償として『常』『良』のコストがすべて +1 重くなる。",
     flavor: "軽き言葉を侮蔑し、大作のみを愛する狂的な審美眼。",
   },
   {
@@ -404,7 +404,8 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "天啓",
     category: "covenant",
     isWhiteRevelation: true,
-    description: "カード発動（再発動含む）ごとに戦闘指数に +0.008 加算され、毎ターン開始時コスト +1・手札 +1。",
+    description:
+      "カード発動ごとに戦闘指数 +0.005（再発動では重複せず、1戦闘内の戦闘指数増加は合計 +0.75 まで）。毎ターン開始時コスト +1・手札 +1。",
     flavor: "整然たる調律が星々の運行と重なり、戦況を静かに押し上げる。",
   },
   {
