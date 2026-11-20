@@ -89,7 +89,6 @@ export interface RunState {
   battleFlatAdd: number;
   battleMult: number;
   battleExponent: number;
-  battleExponentGainInBattle: number;
   nextCardMult: number;
   nextCardRetrigger: number;
   nextAttackMult: number;
@@ -314,7 +313,6 @@ export function startNewRun(
     battleFlatAdd: 0,
     battleMult: 1,
     battleExponent: 1,
-    battleExponentGainInBattle: 0,
     nextCardMult: 1,
     nextCardRetrigger: 0,
     nextAttackMult: 1,
@@ -588,19 +586,6 @@ function applySelfHarm(state: RunState, rawLoss: number): number {
   return actualLost;
 }
 
-const MAX_BATTLE_EXPONENT_GAIN = 0.75;
-
-function addBattleExponent(state: RunState, delta: number): number {
-  const remaining = Math.max(0, MAX_BATTLE_EXPONENT_GAIN - state.battleExponentGainInBattle);
-  const actual = Math.min(delta, remaining);
-  if (actual <= 0) return 0;
-  state.battleExponentGainInBattle = Number(
-    (state.battleExponentGainInBattle + actual).toFixed(3)
-  );
-  state.battleExponent = Number((state.battleExponent + actual).toFixed(3));
-  return actual;
-}
-
 function applyDamageToEnemy(
   state: RunState,
   rawDmg: number,
@@ -868,8 +853,8 @@ export function playCardFromHand(
       state.battleFlatAdd += 150;
       state.battleMult *= 1.8;
     }
-    if (hasWhiteApex && r === 0) {
-      addBattleExponent(state, 0.005);
+    if (hasWhiteApex) {
+      state.battleExponent = Number((state.battleExponent + 0.008).toFixed(3));
     }
     if (hasBlackBloodwrite && r === 0) {
       state.permanentFlatAdd += 80;
@@ -881,7 +866,7 @@ export function playCardFromHand(
       r === 0 &&
       (card.rank === "SSR" || card.rank === "UR")
     ) {
-      addBattleExponent(state, 0.035);
+      state.battleExponent = Number((state.battleExponent + 0.035).toFixed(3));
       state.battleMult *= 2.2;
     }
     if (isPureNoFDeck) {
@@ -1470,7 +1455,7 @@ export function playCardFromHand(
     state.fourElementsTriggeredThisBattle = true;
     state.battleMult = state.battleMult * 3.5;
     state.permanentExponentBonus = Number((state.permanentExponentBonus + 0.03).toFixed(3));
-    addBattleExponent(state, 0.2);
+    state.battleExponent = Number((state.battleExponent + 0.2).toFixed(3));
     state.logs.unshift(
       `四属性の調和発動！戦闘乗算×3.5・戦闘指数+0.2 ＆ 永続指数+0.03（現在 ^${state.battleExponent}）`
     );
@@ -2214,7 +2199,6 @@ export function proceedNextBattleFloor(
     battleFlatAdd: startFlatAdd,
     battleMult: startMult,
     battleExponent: startExponent,
-    battleExponentGainInBattle: 0,
     nextCardMult: 1,
     nextCardRetrigger: 0,
     nextAttackMult: 1,
