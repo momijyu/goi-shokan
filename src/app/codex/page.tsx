@@ -134,7 +134,7 @@ export default function CodexPage() {
                     return (
                       <div
                         key={term}
-                        className="flex min-h-[124px] flex-col items-center justify-center border border-[#242028] bg-[#0B0A0E] p-2 text-center"
+                        className="flex h-[118px] flex-col items-center justify-center border border-[#242028] bg-[#0B0A0E] p-2 text-center sm:h-[140px]"
                       >
                         <Lock className="mb-1 h-3.5 w-3.5 text-[#4A453C]" />
                         <span className="font-serif text-xs text-[#6B6459]">
@@ -163,7 +163,6 @@ export default function CodexPage() {
                 word={w}
                 inDeck={deckPoolSet.has(w.term)}
                 isAce={save.aceTerm === w.term}
-                className="min-h-[168px] p-2 sm:min-h-[200px] sm:p-3"
                 onClick={() => setSelectedWord(w)}
               />
             ))}
@@ -183,7 +182,6 @@ export default function CodexPage() {
                   key={w.term}
                   word={w}
                   badgeText="未知語"
-                  className="min-h-[168px] p-2 sm:min-h-[200px] sm:p-3"
                   onClick={() => setSelectedWord(w)}
                 />
               ))}

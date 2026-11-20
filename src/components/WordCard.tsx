@@ -93,8 +93,10 @@ export function WordCard({
       }}
       className={`group relative flex min-w-0 flex-col justify-between overflow-hidden text-left transition-all duration-150 ${
         compact
-          ? "min-h-[108px] p-1.5 sm:min-h-[140px] sm:p-2.5"
-          : "min-h-[200px] p-3"
+          ? className
+            ? "p-1.5 sm:p-2.5"
+            : "h-[118px] p-1.5 sm:h-[140px] sm:p-2.5"
+          : "h-[234px] p-2.5 sm:h-[244px] sm:p-3"
       } ${
         dimUnselected && !inDeck && !isAce ? "opacity-65 hover:opacity-100" : ""
       } ${
@@ -199,10 +201,10 @@ export function WordCard({
       </div>
 
       {/* Center: Term + Reading + Attribute + Skill Summary */}
-      <div className="relative z-10 my-1.5 flex flex-1 flex-col justify-center">
+      <div className="relative z-10 my-1 flex min-h-0 flex-1 flex-col justify-center">
         <div className="text-center">
           <div
-            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-words leading-tight ${
+            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-words leading-tight line-clamp-2 ${
               word.term.length >= 4
                 ? compact
                   ? "text-xs sm:text-sm"
@@ -215,7 +217,7 @@ export function WordCard({
             {word.term}
           </div>
           {!compact && (
-            <div className="mt-0.5 font-sans text-[11px] text-[#A89F8E]">
+            <div className="mt-0.5 truncate font-sans text-[11px] text-[#A89F8E]">
               {word.reading}
             </div>
           )}
@@ -226,7 +228,7 @@ export function WordCard({
             <div className="flex items-center justify-between gap-1">
               <span
                 style={{ color: attrMeta.color }}
-                className="font-serif text-[11px] font-bold"
+                className="truncate font-serif text-[11px] font-bold"
               >
                 {attrMeta.label}
                 <span className="ml-1 font-mono text-[10px] opacity-85">
@@ -235,12 +237,12 @@ export function WordCard({
               </span>
               <span
                 style={{ color: skillMeta.color }}
-                className="border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] font-bold"
+                className="shrink-0 border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] font-bold"
               >
                 {skillMeta.shortTag}
               </span>
             </div>
-            <p className="text-[10.5px] leading-snug text-[#CFC8B8] break-words">
+            <p className="line-clamp-3 text-[10.5px] leading-snug text-[#CFC8B8] break-words">
               {word.skillDesc}
             </p>
           </div>

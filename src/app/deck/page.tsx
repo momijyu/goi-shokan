@@ -417,7 +417,6 @@ export default function DeckPage() {
                     inDeck={inPool}
                     isAce={isAce}
                     dimUnselected={!inPool}
-                    className={mobileTwoCol ? "min-h-[168px] p-2 sm:min-h-[200px] sm:p-3" : ""}
                     onClick={() => setDetailWord(w)}
                   />
                   <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
