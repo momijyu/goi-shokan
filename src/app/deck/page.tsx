@@ -33,7 +33,7 @@ export default function DeckPage() {
     onlyInDeck: false,
   });
   const [detailWord, setDetailWord] = useState<OwnedWord | null>(null);
-  const [poolOpenMobile, setPoolOpenMobile] = useState(false);
+  const [poolOpenMobile, setPoolOpenMobile] = useState(true);
   const [mobileTwoCol, setMobileTwoCol] = useState(true);
 
   const ownedList = Object.values(save.ownedWords);
@@ -111,79 +111,19 @@ export default function DeckPage() {
         </div>
       </section>
 
-      {/* Ace + Current Pool Summary */}
+      {/* Ace (PC left sidebar) + Current Pool Summary */}
       <div className="grid gap-3 md:grid-cols-[220px_1fr] md:gap-4">
-        <div className="border border-[#D4AF37] bg-[#19150E] p-2.5 sm:p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs font-bold text-[#F4D06F] sm:mb-2">
-            <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <div className="hidden border border-[#D4AF37] bg-[#19150E] p-3 md:block">
+          <div className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold text-[#F4D06F]">
+            <Crown className="h-4 w-4" />
             <span>持ち込みエース（1枚）</span>
           </div>
-          {/* Mobile Compact Ace Bar */}
-          {aceWord && (() => {
-            const aceStats = getEffectiveStats(aceWord, aceWord.obtainCount);
-            const aceAttr = ATTR_META[aceWord.attribute];
-            const aceRank = RANK_META[aceWord.rank];
-            const aceSkill = SKILL_META[aceWord.skillType];
-            return (
-              <button
-                type="button"
-                onClick={() => setDetailWord(aceWord)}
-                style={{
-                  borderColor: aceAttr.border,
-                  backgroundColor: aceAttr.tintBg,
-                }}
-                className="flex w-full items-center justify-between gap-2 border px-2.5 py-2 text-left md:hidden"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    style={{
-                      color: aceRank.color,
-                      backgroundColor: aceRank.bg,
-                      borderColor: aceRank.border,
-                    }}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center border font-serif text-xs font-bold"
-                  >
-                    {aceRank.kanji}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate font-serif text-sm font-extrabold text-[#F7F3EA]">
-                        {aceWord.term}
-                      </span>
-                      <span className="shrink-0 font-mono text-[10px] text-[#E3B94E]">
-                        {aceWord.cost}コス
-                      </span>
-                    </div>
-                    <p className="truncate text-[10px] text-[#CFC8B8]">
-                      <span style={{ color: aceSkill.color }} className="mr-1 font-bold">
-                        [{aceSkill.shortTag}]
-                      </span>
-                      {aceWord.skillDesc}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end font-mono text-[10px] font-bold">
-                  <span className="inline-flex items-center gap-0.5 text-[#F07167]">
-                    <Sword className="h-2.5 w-2.5" />
-                    {aceStats.atk}
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
-                    <Shield className="h-2.5 w-2.5" />
-                    {aceStats.def}
-                  </span>
-                </div>
-              </button>
-            );
-          })()}
-          {/* PC Full Ace Card */}
           {aceWord && (
-            <div className="hidden md:block">
-              <WordCard
-                word={aceWord}
-                isAce
-                onClick={() => setDetailWord(aceWord)}
-              />
-            </div>
+            <WordCard
+              word={aceWord}
+              isAce
+              onClick={() => setDetailWord(aceWord)}
+            />
           )}
         </div>
 
@@ -192,9 +132,21 @@ export default function DeckPage() {
             <h2 className="font-serif text-sm font-bold text-[#F7F3EA] sm:text-base">
               現在のマイ辞書（選択中）
             </h2>
-            <span className="font-mono text-xs font-bold text-[#6EE7B7] sm:text-sm">
-              {poolWords.length} / 30 枚（最低6枚）
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {aceWord && (
+                <button
+                  type="button"
+                  onClick={() => setDetailWord(aceWord)}
+                  className="inline-flex items-center gap-1 border border-[#8A7348] bg-[#261E0E] px-2 py-0.5 font-mono text-[10px] font-bold text-[#F4D06F] md:hidden"
+                >
+                  <Crown className="h-3 w-3 shrink-0" />
+                  <span>エース：{aceWord.term}</span>
+                </button>
+              )}
+              <span className="font-mono text-xs font-bold text-[#6EE7B7] sm:text-sm">
+                {poolWords.length} / 30 枚（最低6枚）
+              </span>
+            </div>
           </div>
 
           {/* Attribute distribution (1 single clean row on mobile!) */}
@@ -217,15 +169,19 @@ export default function DeckPage() {
             })}
           </div>
 
-          {/* Mobile Accordion Toggle for Selected Pool Chips */}
+          {/* Mobile Accordion Toggle for Selected Pool (Open by default so cards are immediately visible!) */}
           <button
             type="button"
             onClick={() => setPoolOpenMobile((prev) => !prev)}
-            className="flex w-full items-center justify-between border border-[#2A241E] bg-[#0B0A0E] px-2.5 py-1.5 font-mono text-[11px] text-[#CFC8B8] md:hidden"
+            className="flex w-full items-center justify-between border border-[#564935] bg-[#18151E] px-2.5 py-1.5 font-mono text-[11px] font-bold text-[#E3B94E] md:hidden"
           >
-            <span>選択中のカード一覧（{poolWords.length}枚）を確認・外す</span>
+            <span>
+              {poolOpenMobile
+                ? `編成中のカード（${poolWords.length}枚）を折りたたむ`
+                : `編成中のカード（${poolWords.length}枚）を表示する`}
+            </span>
             <ChevronDown
-              className={`h-3.5 w-3.5 text-[#8A7348] transition-transform ${
+              className={`h-3.5 w-3.5 text-[#E3B94E] transition-transform ${
                 poolOpenMobile ? "rotate-180" : ""
               }`}
             />
