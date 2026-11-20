@@ -222,9 +222,6 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 text-xs leading-relaxed text-[#B4ABA0]">
-                    <p>
-                      現在はゲストモード（ブラウザのローカルストレージ保存）で動作しています。会員ログイン連携（クラウド同期）対応時には、このままデータを引き継ぐ設計です。
-                    </p>
                     <form onSubmit={handleRenameGuest} className="space-y-2">
                       <label className="block font-mono text-[11px] text-[#8A7348]">
                         召喚士名
