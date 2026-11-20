@@ -1195,55 +1195,72 @@ export default function DungeonPage() {
                 })}
               </div>
 
-              {/* Mobile Hand Cards: Slay-the-Spire style single-row animated rail (No vertical expansion!) */}
-              <div className="touch-pan-x overflow-x-auto overscroll-x-contain lg:hidden">
-                <div className="mx-auto flex w-max min-w-full items-end justify-center px-3 pt-5 pb-1.5">
-                  {run.hand.map((card, idx) => {
-                    const cost = getEffectiveCardCost(run, card);
-                    const canAfford = run.energy >= cost || hasOverclock;
-                    const isSelected = selectedCardId === card.instanceId;
-                    const overlapClass =
-                      idx === 0
-                        ? ""
-                        : run.hand.length >= 6
-                          ? "-ml-3"
-                          : run.hand.length >= 4
-                            ? "-ml-1.5"
-                            : "ml-1.5";
-                    return (
-                      <motion.div
-                        key={card.instanceId}
-                        layout
-                        animate={
-                          isSelected
-                            ? { y: -8, scale: 1.04 }
-                            : { y: 0, scale: 1 }
-                        }
-                        transition={{ type: "spring", stiffness: 420, damping: 28 }}
-                        style={{ zIndex: isSelected ? 20 : idx + 1 }}
-                        className={`relative shrink-0 ${overlapClass}`}
-                      >
-                        <WordCard
-                          word={card}
-                          effectiveCost={cost}
-                          plusLevel={card.plusLevel}
-                          selected={isSelected}
-                          disabled={!canAfford}
-                          isTemporaryTrial={card.isTemporaryTrial}
-                          compact
-                          disableLift
-                          className="w-[88px] min-h-[96px]"
-                          onClick={() =>
-                            setSelectedCardId((prev) =>
-                              prev === card.instanceId ? null : card.instanceId
-                            )
+              {/* Mobile Hand Cards: Fits 1–5 cards cleanly without horizontal clipping; 6+ cards scroll smoothly */}
+              {(() => {
+                const isScrollable = run.hand.length >= 6;
+                const cardWrapperClass = isScrollable
+                  ? "relative shrink-0"
+                  : run.hand.length === 5
+                    ? "relative min-w-0 flex-1 max-w-[78px]"
+                    : "relative min-w-0 flex-1 max-w-[84px]";
+                const cardClass = isScrollable
+                  ? "w-[74px] min-h-[104px]"
+                  : "w-full min-h-[104px]";
+                const rail = (
+                  <div
+                    className={
+                      isScrollable
+                        ? "flex w-max min-w-full items-end justify-start gap-1 px-1 pt-4 pb-1"
+                        : "flex w-full items-end justify-center gap-1 pt-4 pb-1"
+                    }
+                  >
+                    {run.hand.map((card, idx) => {
+                      const cost = getEffectiveCardCost(run, card);
+                      const canAfford = run.energy >= cost || hasOverclock;
+                      const isSelected = selectedCardId === card.instanceId;
+                      return (
+                        <motion.div
+                          key={card.instanceId}
+                          layout
+                          animate={
+                            isSelected
+                              ? { y: -8, scale: 1.04 }
+                              : { y: 0, scale: 1 }
                           }
-                        />
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
+                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                          style={{ zIndex: isSelected ? 20 : idx + 1 }}
+                          className={cardWrapperClass}
+                        >
+                          <WordCard
+                            word={card}
+                            effectiveCost={cost}
+                            plusLevel={card.plusLevel}
+                            selected={isSelected}
+                            disabled={!canAfford}
+                            isTemporaryTrial={card.isTemporaryTrial}
+                            compact
+                            mini
+                            disableLift
+                            className={cardClass}
+                            onClick={() =>
+                              setSelectedCardId((prev) =>
+                                prev === card.instanceId ? null : card.instanceId
+                              )
+                            }
+                          />
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                );
+                return isScrollable ? (
+                  <div className="touch-pan-x overflow-x-auto overscroll-x-contain lg:hidden">
+                    {rail}
+                  </div>
+                ) : (
+                  <div className="lg:hidden">{rail}</div>
+                );
+              })()}
 
               {/* PC Hand Cards (Original 5-column desktop grid preserved) */}
               <div className="hidden gap-2 lg:grid lg:grid-cols-5">
@@ -1742,8 +1759,9 @@ export default function DungeonPage() {
                             selected={isSelected}
                             isTemporaryTrial={c.isTemporaryTrial}
                             compact
+                            mini
                             disableLift
-                            className="w-[88px] min-h-[96px]"
+                            className="w-[80px] min-h-[102px]"
                             onClick={() =>
                               setSelectedLibraryCardId((prev) =>
                                 prev === c.instanceId ? null : c.instanceId
