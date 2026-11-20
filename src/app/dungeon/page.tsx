@@ -635,7 +635,7 @@ export default function DungeonPage() {
           </div>
         </div>
 
-        {/* Mobile Route Collapsible Bar (Always expanded outside battle/card reward; collapsible during battle/reward to keep 1-screen fit) */}
+        {/* Mobile Route Collapsible Bar (Always collapsed by default on mobile to preserve 1-screen layout) */}
         <div className="border border-[#2E2822] bg-[#100E14] px-2.5 py-1.5 lg:hidden">
           <button
             type="button"
@@ -648,13 +648,11 @@ export default function DungeonPage() {
             </span>
             <ChevronDown
               className={`h-3.5 w-3.5 shrink-0 text-[#8A7348] transition-transform ${
-                routeOpenMobile || (run.phase !== "battle" && run.phase !== "reward_card")
-                  ? "rotate-180"
-                  : ""
+                routeOpenMobile ? "rotate-180" : ""
               }`}
             />
           </button>
-          {(routeOpenMobile || (run.phase !== "battle" && run.phase !== "reward_card")) && (
+          {routeOpenMobile && (
             <div className="mt-1.5 flex items-center gap-1 overflow-x-auto border-t border-[#221D18] pt-1.5 pb-0.5">
               {buildDungeonRouteNodes(run).map((node, idx, arr) => {
                 const isCurrent = node.status === "current";
@@ -1473,30 +1471,32 @@ export default function DungeonPage() {
 
         {/* === REWARD: RELIC 3-CHOICE === */}
         {run.phase === "reward_relic" && (
-          <div className="kaku-frame space-y-4 p-4 sm:p-5">
+          <div className="kaku-frame space-y-2.5 p-3 lg:space-y-4 lg:p-5">
             <div>
-              <p className="font-mono text-[10px] text-[#E3B94E]">RELIC SELECTION</p>
-              <h2 className="font-serif text-xl font-extrabold text-[#F2ECE0]">
+              <p className="hidden font-mono text-[10px] text-[#E3B94E] lg:block">
+                RELIC SELECTION
+              </p>
+              <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0] lg:text-xl">
                 遺物（レリック）を1つ選択
               </h2>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-2 lg:space-y-2.5">
               {run.relicChoices.map((r) => (
                 <button
                   key={r.id}
                   type="button"
                   onClick={() => setRun(chooseRelicReward(run, r))}
-                  className="w-full border border-[#8A7348] bg-[#16131C] p-3 text-left transition-colors hover:border-[#D4AF37] hover:bg-[#211C2A]"
+                  className="w-full border border-[#8A7348] bg-[#16131C] p-2.5 text-left transition-colors hover:border-[#D4AF37] hover:bg-[#211C2A] lg:p-3"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif text-base font-extrabold text-[#E3B94E]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-serif text-sm font-extrabold text-[#E3B94E] lg:text-base">
                       {r.name}
                     </span>
-                    <span className="border border-[#564935] bg-[#0B0A0E] px-2 py-0.5 font-mono text-[10px] text-[#CFC8B8]">
+                    <span className="shrink-0 border border-[#564935] bg-[#0B0A0E] px-2 py-0.5 font-mono text-[10px] text-[#CFC8B8]">
                       {r.rankLabel}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-[#DCD4C2]">
+                  <p className="mt-1 text-[11px] leading-snug text-[#DCD4C2] lg:text-xs lg:leading-relaxed">
                     {r.description}
                   </p>
                 </button>
@@ -1505,7 +1505,7 @@ export default function DungeonPage() {
             <button
               type="button"
               onClick={() => setRun(chooseRelicReward(run, null))}
-              className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-xs text-[#968E7E] hover:border-[#8A7348] hover:text-[#ECE6D8]"
+              className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-[11px] text-[#968E7E] hover:border-[#8A7348] hover:text-[#ECE6D8] lg:text-xs"
             >
               {run.relicIds.includes("black_pact_ascetic")
                 ? "受け取らずに見送る（禁欲の代償により回復無効）"
@@ -1529,63 +1529,66 @@ export default function DungeonPage() {
                 ? run.covenantOfferedRelic
                 : null);
             return (
-              <div className="kaku-frame border border-[#8A7348] bg-[#120F16] p-5 space-y-4">
+              <div className="kaku-frame space-y-2.5 border border-[#8A7348] bg-[#120F16] p-3 lg:space-y-4 lg:p-5">
                 <div>
-                  <p className="font-mono text-[10px] tracking-widest text-[#E3B94E]">
+                  <p className="hidden font-mono text-[10px] tracking-widest text-[#E3B94E] lg:block">
                     {offeredBlack && offeredWhite
                       ? "ALTAR OF COVENANT & REVELATION"
                       : offeredWhite
                         ? "WHITE REVELATION ALTAR"
                         : "BLACK COVENANT ALTAR"}
                   </p>
-                  <h2 className="mt-1 font-serif text-xl font-extrabold text-[#F2ECE0]">
+                  <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0] lg:mt-1 lg:text-xl">
                     {offeredBlack && offeredWhite
-                      ? "運命の祭壇 — 黒き禁忌か、白き天啓か"
+                      ? "運命の祭壇 — 黒か白か"
                       : offeredWhite
-                        ? "白き天啓 — 純粋なる言霊の祝福"
-                        : "黒き契約 — 代償と引き換えの禁忌"}
+                        ? "白き天啓の祭壇"
+                        : "黒き契約の祭壇"}
                   </h2>
-                  <p className="mt-1 text-xs text-[#CFC8B8]">
+                  <p className="mt-0.5 text-[11px] leading-snug text-[#CFC8B8] lg:mt-1 lg:text-xs">
                     {offeredBlack && offeredWhite
-                      ? "リスクと爆発火力の「黒」か、安定と純潔の「白」か。片方を選ぶと、このランでは選んだ側の祭壇のみ出現します。"
+                      ? "選んだ側の祭壇のみ以降出現します（見送り可）。"
                       : offeredWhite
-                        ? "すでに「白き天啓」の道を進んでいるため、黒き契約は封印されています。"
-                        : "すでに「黒き契約」を結んでいるため、白き天啓は封印されています。禁忌をさらに重ねますか？"}
+                        ? "白き天啓のみ出現中です。"
+                        : "黒き契約のみ出現中です。"}
                   </p>
                 </div>
 
                 <div
-                  className={`grid gap-3 ${
+                  className={`grid gap-2.5 lg:gap-3 ${
                     offeredBlack && offeredWhite
                       ? "grid-cols-1 sm:grid-cols-2"
                       : "grid-cols-1"
                   }`}
                 >
                   {offeredBlack && (
-                    <div className="flex flex-col justify-between border border-[#C93A2B] bg-[#1A0E10] p-3.5 space-y-3">
+                    <div className="flex flex-col justify-between space-y-2 border border-[#C93A2B] bg-[#1A0E10] p-2.5 lg:space-y-3 lg:p-3.5">
                       <div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[10px] tracking-widest text-[#F08A7E]">
+                          <span className="font-serif text-sm font-bold text-[#F7B5AD] lg:hidden">
+                            {offeredBlack.name}
+                          </span>
+                          <span className="hidden font-mono text-[10px] tracking-widest text-[#F08A7E] lg:inline">
                             BLACK COVENANT
                           </span>
-                          <span className="border border-[#8E352E] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] text-[#F08A7E]">
-                            黒契約・爆発火力
+                          <span className="shrink-0 border border-[#8E352E] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] text-[#F08A7E]">
+                            黒契約・代償付火力
                           </span>
                         </div>
-                        <div className="mt-1 font-serif text-base font-bold text-[#F7B5AD]">
+                        <div className="mt-1 hidden font-serif text-base font-bold text-[#F7B5AD] lg:block">
                           {offeredBlack.name}
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-[#ECE6D8]">
+                        <p className="mt-1 text-[11px] leading-snug text-[#ECE6D8] lg:text-xs lg:leading-relaxed">
                           {offeredBlack.description}
                         </p>
-                        <p className="mt-1.5 text-[11px] italic text-[#9C8481]">
+                        <p className="mt-1.5 hidden text-[11px] italic text-[#9C8481] lg:block">
                           {offeredBlack.flavor}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setRun(resolveCovenantEvent(run, "black"))}
-                        className="w-full border border-[#C93A2B] bg-[#301316] py-2 font-serif text-sm font-bold text-[#F7B5AD] hover:bg-[#471A1F]"
+                        className="w-full border border-[#C93A2B] bg-[#301316] py-1.5 font-serif text-xs font-bold text-[#F7B5AD] hover:bg-[#471A1F] lg:py-2 lg:text-sm"
                       >
                         黒き契約を結ぶ
                       </button>
@@ -1593,30 +1596,33 @@ export default function DungeonPage() {
                   )}
 
                   {offeredWhite && (
-                    <div className="flex flex-col justify-between border border-[#D4AF37] bg-[#1E1A11] p-3.5 space-y-3">
+                    <div className="flex flex-col justify-between space-y-2 border border-[#D4AF37] bg-[#1E1A11] p-2.5 lg:space-y-3 lg:p-3.5">
                       <div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[10px] tracking-widest text-[#F4D06F]">
+                          <span className="font-serif text-sm font-bold text-[#F7DF9C] lg:hidden">
+                            {offeredWhite.name}
+                          </span>
+                          <span className="hidden font-mono text-[10px] tracking-widest text-[#F4D06F] lg:inline">
                             WHITE REVELATION
                           </span>
-                          <span className="border border-[#8A7348] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] text-[#F4D06F]">
-                            天啓・安定祝福
+                          <span className="shrink-0 border border-[#8A7348] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] text-[#F4D06F]">
+                            白天啓・安定祝福
                           </span>
                         </div>
-                        <div className="mt-1 font-serif text-base font-bold text-[#F7DF9C]">
+                        <div className="mt-1 hidden font-serif text-base font-bold text-[#F7DF9C] lg:block">
                           {offeredWhite.name}
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-[#ECE6D8]">
+                        <p className="mt-1 text-[11px] leading-snug text-[#ECE6D8] lg:text-xs lg:leading-relaxed">
                           {offeredWhite.description}
                         </p>
-                        <p className="mt-1.5 text-[11px] italic text-[#A39880]">
+                        <p className="mt-1.5 hidden text-[11px] italic text-[#A39880] lg:block">
                           {offeredWhite.flavor}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setRun(resolveCovenantEvent(run, "white"))}
-                        className="w-full border border-[#D4AF37] bg-[#2B2210] py-2 font-serif text-sm font-bold text-[#F7DF9C] hover:bg-[#3B2F16]"
+                        className="w-full border border-[#D4AF37] bg-[#2B2210] py-1.5 font-serif text-xs font-bold text-[#F7DF9C] hover:bg-[#3B2F16] lg:py-2 lg:text-sm"
                       >
                         白き天啓を授かる
                       </button>
@@ -1627,7 +1633,7 @@ export default function DungeonPage() {
                 <button
                   type="button"
                   onClick={() => setRun(resolveCovenantEvent(run, "skip"))}
-                  className="w-full border border-[#4A453C] bg-[#0B0A0E] py-2 font-mono text-xs text-[#CFC8B8] hover:border-[#8A7348]"
+                  className="w-full border border-[#4A453C] bg-[#0B0A0E] py-1.5 font-mono text-[11px] text-[#CFC8B8] hover:border-[#8A7348] lg:py-2 lg:text-xs"
                 >
                   {run.relicIds.includes("black_pact_ascetic")
                     ? "見送る（禁欲の代償により回復無効）"
