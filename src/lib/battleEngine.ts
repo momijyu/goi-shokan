@@ -1009,7 +1009,7 @@ export function playCardFromHand(
     );
     const guardSustainedBase =
       rawBase +
-      Math.floor(state.permanentFlatAdd * 0.03) +
+      Math.floor(Math.sqrt(Math.max(0, state.permanentFlatAdd)) * 1.8) +
       Math.floor(state.playerMaxHp * 0.06);
 
     if (role === "attack") {
@@ -1726,9 +1726,13 @@ export function endPlayerTurn(prev: RunState): RunState {
     state.logs.unshift(`常世の静謐：HPを ${sereneHeal} 回復した。`);
   }
 
-  // Anti-stall enrage: from Turn 5 onward, enemy ATK scales exponentially so infinite stall loops cannot farm permanent stats
+  // Anti-stall enrage: from Turn 5 onward, enemy ATK scales exponentially relative to its base ATK so high-shield builds cannot stall indefinitely
   if (state.turn >= 5) {
-    const baseStep = state.isEndless ? 12 : 6;
+    const baseEnemyAtk = state.enemy.pattern[0]?.value ?? 20;
+    const baseStep = Math.max(
+      state.isEndless ? 15 : 8,
+      Math.floor(baseEnemyAtk * (state.isEndless ? 0.35 : 0.25))
+    );
     const enrageGain = Math.floor(baseStep * Math.pow(1.42, state.turn - 5));
     if (enrageGain > 0) {
       state.enemyAtkBonus += enrageGain;
