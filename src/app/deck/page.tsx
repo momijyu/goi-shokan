@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Crown, Plus, Shield, Sword, X } from "lucide-react";
+import { Check, ChevronDown, Crown, LayoutGrid, Plus, Rows3, Shield, Sword, X } from "lucide-react";
 import { AttributeGuideBar } from "@/components/AttributeGuideBar";
 import { useSaveData } from "@/components/GameShell";
 import { WordCard } from "@/components/WordCard";
@@ -33,6 +33,8 @@ export default function DeckPage() {
     onlyInDeck: false,
   });
   const [detailWord, setDetailWord] = useState<OwnedWord | null>(null);
+  const [poolOpenMobile, setPoolOpenMobile] = useState(true);
+  const [mobileTwoCol, setMobileTwoCol] = useState(true);
 
   const ownedList = Object.values(save.ownedWords);
   const deckPoolSet = new Set(save.deckPoolTerms);
@@ -86,32 +88,32 @@ export default function DeckPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="kaku-frame p-4 sm:p-5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="kaku-frame p-3 sm:p-5">
+        <div className="flex flex-col justify-between gap-2.5 sm:flex-row sm:items-end sm:gap-3">
           <div>
-            <p className="font-mono text-[11px] tracking-[0.22em] text-[#A89262]">
+            <p className="font-mono text-[10px] tracking-[0.22em] text-[#A89262] sm:text-[11px]">
               DROP POOL CONFIGURATION
             </p>
-            <h1 className="mt-1 font-serif text-2xl font-extrabold text-[#F7F3EA]">
+            <h1 className="mt-0.5 font-serif text-xl font-extrabold text-[#F7F3EA] sm:mt-1 sm:text-2xl">
               マイ辞書 ＆ エース編成
             </h1>
-            <p className="mt-1 text-xs leading-relaxed text-[#CFC8B8]">
-              緑枠「辞書IN」のカード（6〜30枚）が迷宮のドロップ候補になり、金枠「エース」1枚が初期手札に必ず加わります。
+            <p className="mt-0.5 text-[11px] leading-relaxed text-[#CFC8B8] sm:mt-1 sm:text-xs">
+              緑枠「辞書IN」（6〜30枚）がドロップ候補になり、金枠「エース」1枚が初期手札に必ず加わります。
             </p>
           </div>
           <Link
             href="/dungeon"
-            className="inline-flex shrink-0 items-center justify-center border border-[#C93A2B] bg-[#291112] px-5 py-2.5 font-serif text-sm font-bold text-[#F7F3EA] hover:bg-[#C93A2B]"
+            className="inline-flex shrink-0 items-center justify-center border border-[#C93A2B] bg-[#291112] px-4 py-2 font-serif text-xs font-bold text-[#F7F3EA] hover:bg-[#C93A2B] sm:px-5 sm:py-2.5 sm:text-sm"
           >
             この辞書で迷宮へ
           </Link>
         </div>
       </section>
 
-      {/* Ace + Current Pool Summary */}
-      <div className="grid gap-4 md:grid-cols-[220px_1fr]">
-        <div className="border border-[#D4AF37] bg-[#19150E] p-3">
+      {/* Ace (PC left sidebar) + Current Pool Summary */}
+      <div className="grid gap-3 md:grid-cols-[220px_1fr] md:gap-4">
+        <div className="hidden border border-[#D4AF37] bg-[#19150E] p-3 md:block">
           <div className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold text-[#F4D06F]">
             <Crown className="h-4 w-4" />
             <span>持ち込みエース（1枚）</span>
@@ -125,24 +127,36 @@ export default function DeckPage() {
           )}
         </div>
 
-        <div className="border border-[#2E2822] bg-[#121016] p-4 space-y-3">
+        <div className="space-y-2.5 border border-[#2E2822] bg-[#121016] p-3 sm:space-y-3 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-serif text-base font-bold text-[#F7F3EA]">
+            <h2 className="font-serif text-sm font-bold text-[#F7F3EA] sm:text-base">
               現在のマイ辞書（選択中）
             </h2>
-            <span className="font-mono text-sm font-bold text-[#6EE7B7]">
-              {poolWords.length} / 30 枚（最低6枚）
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {aceWord && (
+                <button
+                  type="button"
+                  onClick={() => setDetailWord(aceWord)}
+                  className="inline-flex items-center gap-1 border border-[#8A7348] bg-[#261E0E] px-2 py-0.5 font-mono text-[10px] font-bold text-[#F4D06F] md:hidden"
+                >
+                  <Crown className="h-3 w-3 shrink-0" />
+                  <span>エース：{aceWord.term}</span>
+                </button>
+              )}
+              <span className="font-mono text-xs font-bold text-[#6EE7B7] sm:text-sm">
+                {poolWords.length} / 30 枚（最低6枚）
+              </span>
+            </div>
           </div>
 
-          {/* Attribute distribution */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {/* Attribute distribution (1 single clean row on mobile!) */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             {(["logic", "emotion", "sense", "matter"] as Attribute[]).map((attr) => {
               const meta = ATTR_META[attr];
               return (
                 <div
                   key={attr}
-                  className="flex items-center justify-between border border-[#2A241E] bg-[#0B0A0E] px-3 py-1.5 text-xs"
+                  className="flex flex-col items-center justify-between border border-[#2A241E] bg-[#0B0A0E] px-1.5 py-1 text-[11px] sm:flex-row sm:px-3 sm:py-1.5 sm:text-xs"
                 >
                   <span style={{ color: meta.color }} className="font-serif font-bold">
                     {meta.label}
@@ -155,8 +169,78 @@ export default function DeckPage() {
             })}
           </div>
 
-          {/* Readable Selected Pool Chips */}
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Mobile Accordion Toggle for Selected Pool (Open by default so cards are immediately visible!) */}
+          <button
+            type="button"
+            onClick={() => setPoolOpenMobile((prev) => !prev)}
+            className="flex w-full items-center justify-between border border-[#564935] bg-[#18151E] px-2.5 py-1.5 font-mono text-[11px] font-bold text-[#E3B94E] md:hidden"
+          >
+            <span>
+              {poolOpenMobile
+                ? `編成中のカード（${poolWords.length}枚）を折りたたむ`
+                : `編成中のカード（${poolWords.length}枚）を表示する`}
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-[#E3B94E] transition-transform ${
+                poolOpenMobile ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {/* Mobile Clean 2-Col Single-Line List (Aligned grid, no ATK/DEF clutter) */}
+          {poolOpenMobile && (
+            <div className="grid grid-cols-2 gap-1.5 md:hidden">
+              {poolWords.map((w) => {
+                const rankMeta = RANK_META[w.rank];
+                const attrMeta = ATTR_META[w.attribute];
+                const isAce = w.term === save.aceTerm;
+                return (
+                  <div
+                    key={w.term}
+                    style={{
+                      borderColor: isAce ? "#D4AF37" : "#2A241E",
+                      borderLeftColor: isAce ? "#D4AF37" : attrMeta.border,
+                    }}
+                    className="flex min-w-0 items-center justify-between gap-1 border border-l-2 bg-[#0F0D14] px-2 py-1 text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setDetailWord(w)}
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                    >
+                      <span
+                        style={{
+                          color: rankMeta.color,
+                          backgroundColor: rankMeta.bg,
+                          borderColor: rankMeta.border,
+                        }}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center border font-serif text-[10px] font-bold leading-none"
+                      >
+                        {rankMeta.kanji}
+                      </span>
+                      <span className="truncate font-serif text-xs font-bold text-[#F2ECE0]">
+                        {w.term}
+                      </span>
+                      {isAce && <Crown className="h-3 w-3 shrink-0 text-[#E3B94E]" />}
+                    </button>
+                    {poolWords.length > 6 && (
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePool(w.term)}
+                        title="マイ辞書から外す"
+                        className="shrink-0 p-0.5 text-[#787166] hover:text-[#E05A47]"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* PC Readable Selected Pool Chips (Always open on PC) */}
+          <div className="hidden gap-1.5 md:grid md:grid-cols-2 lg:grid-cols-3">
             {poolWords.map((w) => {
               const stats = getEffectiveStats(w, w.obtainCount);
               const rankMeta = RANK_META[w.rank];
@@ -169,7 +253,7 @@ export default function DeckPage() {
                     borderColor: isAce ? "#D4AF37" : ATTR_META[w.attribute].border,
                     backgroundColor: ATTR_META[w.attribute].tintBg,
                   }}
-                  className="flex items-center justify-between gap-2 border px-2.5 py-1.5 text-xs"
+                  className="flex min-w-0 items-center justify-between gap-2 border px-2.5 py-1.5 text-xs"
                 >
                   <button
                     type="button"
@@ -194,15 +278,18 @@ export default function DeckPage() {
                         {isAce && <Crown className="h-3 w-3 shrink-0 text-[#E3B94E]" />}
                       </div>
                       <div className="flex items-center gap-2 font-mono text-[10px]">
-                        <span className="text-[#F07167] inline-flex items-center gap-0.5">
+                        <span className="inline-flex items-center gap-0.5 text-[#F07167]">
                           <Sword className="h-2.5 w-2.5" />
                           {stats.atk}
                         </span>
-                        <span className="text-[#69A3D9] inline-flex items-center gap-0.5">
+                        <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
                           <Shield className="h-2.5 w-2.5" />
                           {stats.def}
                         </span>
-                        <span style={{ color: skillMeta.color }}>
+                        <span
+                          style={{ color: skillMeta.color }}
+                          className="truncate"
+                        >
                           {skillMeta.shortTag}
                         </span>
                       </div>
@@ -227,14 +314,34 @@ export default function DeckPage() {
       </div>
 
       {/* Filter & Sort + Full Owned Grid */}
-      <section className="border border-[#2E2822] bg-[#121016] p-4 space-y-4">
+      <section className="space-y-3 border border-[#2E2822] bg-[#121016] p-3 sm:space-y-4 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-serif text-lg font-bold text-[#F7F3EA]">
-            所持語彙一覧（表示中 {filteredOwned.length} / 全 {ownedList.length}種）
-          </h2>
-          <span className="font-mono text-xs text-[#A89F8E]">
-            緑枠＝辞書IN ／ 金枠＝エース
-          </span>
+          <div>
+            <h2 className="font-serif text-base font-bold text-[#F7F3EA] sm:text-lg">
+              所持語彙一覧（{filteredOwned.length} / {ownedList.length}種）
+            </h2>
+            <span className="font-mono text-[10px] text-[#A89F8E] sm:text-xs">
+              緑枠＝辞書IN ／ 金枠＝エース（タップで詳細）
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileTwoCol((prev) => !prev)}
+            className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#0B0A0E] px-2.5 py-1 font-mono text-[11px] text-[#E3B94E] sm:hidden"
+          >
+            {mobileTwoCol ? (
+              <>
+                <Rows3 className="h-3.5 w-3.5" />
+                <span>1列表示に切替</span>
+              </>
+            ) : (
+              <>
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>2列表示に切替</span>
+              </>
+            )}
+          </button>
         </div>
 
         <AttributeGuideBar />
@@ -251,12 +358,16 @@ export default function DeckPage() {
             条件に一致する語彙がありません。フィルタを緩めてみてください。
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div
+            className={`grid gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5 ${
+              mobileTwoCol ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
             {filteredOwned.map((w) => {
               const inPool = deckPoolSet.has(w.term);
               const isAce = save.aceTerm === w.term;
               return (
-                <div key={w.term} className="flex flex-col gap-1.5">
+                <div key={w.term} className="flex min-w-0 flex-col gap-1.5">
                   <WordCard
                     word={w}
                     inDeck={inPool}
@@ -264,11 +375,11 @@ export default function DeckPage() {
                     dimUnselected={!inPool}
                     onClick={() => setDetailWord(w)}
                   />
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
                     <button
                       type="button"
                       onClick={() => handleTogglePool(w.term)}
-                      className={`flex items-center justify-center gap-1 border py-1.5 font-mono text-xs font-bold transition-colors ${
+                      className={`flex min-w-0 items-center justify-center gap-1 border py-1.5 font-mono text-[11px] font-bold transition-colors sm:text-xs ${
                         inPool
                           ? "border-[#4EB887] bg-[#173629] text-[#6EE7B7]"
                           : "border-[#3A332A] bg-[#0B0A0E] text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#ECE6D8]"
@@ -276,27 +387,27 @@ export default function DeckPage() {
                     >
                       {inPool ? (
                         <>
-                          <Check className="h-3.5 w-3.5" />
-                          <span>辞書IN</span>
+                          <Check className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
+                          <span className="truncate">辞書IN</span>
                         </>
                       ) : (
                         <>
-                          <Plus className="h-3.5 w-3.5" />
-                          <span>追加</span>
+                          <Plus className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
+                          <span className="truncate">追加</span>
                         </>
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSetAce(w.term)}
-                      className={`flex items-center justify-center gap-1 border py-1.5 font-mono text-xs font-bold transition-colors ${
+                      className={`flex min-w-0 items-center justify-center gap-1 border py-1.5 font-mono text-[11px] font-bold transition-colors sm:text-xs ${
                         isAce
                           ? "border-[#D4AF37] bg-[#382C11] text-[#F4D06F]"
                           : "border-[#3A332A] bg-[#0B0A0E] text-[#A89F8E] hover:border-[#D4AF37] hover:text-[#F4D06F]"
                       }`}
                     >
-                      <Crown className="h-3 w-3" />
-                      <span>{isAce ? "エース中" : "エース"}</span>
+                      <Crown className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{isAce ? "エース中" : "エース"}</span>
                     </button>
                   </div>
                 </div>

@@ -17,10 +17,13 @@ interface WordCardProps {
   disabled?: boolean;
   isTemporaryTrial?: boolean;
   compact?: boolean;
+  mini?: boolean;
   badgeText?: string;
   inDeck?: boolean;
   isAce?: boolean;
   dimUnselected?: boolean;
+  disableLift?: boolean;
+  className?: string;
   onClick?: () => void;
 }
 
@@ -32,10 +35,13 @@ export function WordCard({
   disabled = false,
   isTemporaryTrial = false,
   compact = false,
+  mini = false,
   badgeText,
   inDeck = false,
   isAce = false,
   dimUnselected = false,
+  disableLift = false,
+  className = "",
   onClick,
 }: WordCardProps) {
   const rankMeta = RANK_META[word.rank];
@@ -87,17 +93,23 @@ export function WordCard({
                   ? "inset 0 0 18px rgba(224, 90, 71, 0.16)"
                   : undefined,
       }}
-      className={`group relative flex flex-col justify-between overflow-hidden text-left transition-all duration-150 ${
-        compact
-          ? "min-h-[126px] p-2 sm:min-h-[140px] sm:p-2.5"
-          : "min-h-[200px] p-3"
+      className={`group relative flex min-w-0 flex-col justify-between overflow-hidden text-left transition-all duration-150 ${
+        mini
+          ? "px-1 py-1.5"
+          : compact
+            ? className
+              ? "p-1.5 sm:p-2.5"
+              : "h-[118px] p-1.5 sm:h-[140px] sm:p-2.5"
+            : "h-[234px] p-2.5 sm:h-[244px] sm:p-3"
       } ${
         dimUnselected && !inDeck && !isAce ? "opacity-65 hover:opacity-100" : ""
       } ${
-        selected
-          ? "-translate-y-2"
-          : "hover:-translate-y-0.5 hover:brightness-110"
-      } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+        disableLift
+          ? ""
+          : selected
+            ? "-translate-y-2"
+            : "hover:-translate-y-0.5 hover:brightness-110"
+      } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"} ${className}`}
     >
       {/* Subtle diagonal metallic sheen for 極 (SSR) / 異 (UR) */}
       {isHighTier && (
@@ -155,19 +167,27 @@ export function WordCard({
       )}
 
       {/* Header: Cost + Plus + Rarity Pips & Hanko Seal */}
-      <div className="relative z-10 flex items-center justify-between gap-1">
+      <div className="relative z-10 flex items-center justify-between gap-0.5">
         <span
           className={`inline-flex items-center justify-center border border-[#6E5D42] bg-[#0B0A0E] font-mono font-bold text-[#F2ECE0] ${
-            compact ? "h-5 w-5 text-xs" : "h-6 w-6 text-xs"
+            mini
+              ? "h-4 w-4 text-[10px]"
+              : compact
+                ? "h-5 w-5 text-xs"
+                : "h-6 w-6 text-xs"
           }`}
           title="コスト"
         >
           {displayCost}
         </span>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {stats.plusLevel > 0 && (
-            <span className="border border-[#5A4722] bg-[#1E170A] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[#E3B94E]">
+            <span
+              className={`border border-[#5A4722] bg-[#1E170A] font-mono font-bold leading-none text-[#E3B94E] ${
+                mini ? "px-0.5 py-0.5 text-[9px]" : "px-1 py-0.5 text-[10px]"
+              }`}
+            >
               +{stats.plusLevel}
             </span>
           )}
@@ -177,12 +197,16 @@ export function WordCard({
               backgroundColor: rankMeta.bg,
               borderColor: rankMeta.border,
             }}
-            className={`inline-flex items-center gap-1 border px-1.5 font-serif font-extrabold leading-none ${
-              compact ? "h-5 text-[11px]" : "h-6 text-xs"
+            className={`inline-flex items-center gap-1 border font-serif font-extrabold leading-none ${
+              mini
+                ? "h-4 px-1 text-[10px]"
+                : compact
+                  ? "h-5 px-1.5 text-[11px]"
+                  : "h-6 px-1.5 text-xs"
             }`}
             title={`レア度：${rankMeta.label}（${rankMeta.kanji}）`}
           >
-            {!compact && (
+            {!compact && !mini && (
               <span className="font-mono text-[9px] tracking-tighter opacity-90">
                 {rankMeta.pips}
               </span>
@@ -193,34 +217,46 @@ export function WordCard({
       </div>
 
       {/* Center: Term + Reading + Attribute + Skill Summary */}
-      <div className="relative z-10 my-1.5 flex flex-1 flex-col justify-center">
+      <div className="relative z-10 my-1 flex min-h-0 flex-1 flex-col justify-center">
         <div className="text-center">
           <div
-            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-keep ${
-              word.term.length >= 4
-                ? compact
-                  ? "text-xs sm:text-sm"
-                  : "text-base"
-                : compact
-                  ? "text-sm sm:text-base"
-                  : "text-lg"
+            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-words leading-tight line-clamp-2 ${
+              mini
+                ? word.term.length >= 4
+                  ? "text-[11px]"
+                  : "text-[13px]"
+                : word.term.length >= 4
+                  ? compact
+                    ? "text-xs sm:text-sm"
+                    : "text-base"
+                  : compact
+                    ? "text-sm sm:text-base"
+                    : "text-lg"
             }`}
           >
             {word.term}
           </div>
-          {!compact && (
-            <div className="mt-0.5 font-sans text-[11px] text-[#A89F8E]">
+          {mini && (
+            <div
+              style={{ color: attrMeta.color }}
+              className="mt-0.5 font-serif text-[9px] font-bold leading-none opacity-90"
+            >
+              {attrMeta.label}
+            </div>
+          )}
+          {!compact && !mini && (
+            <div className="mt-0.5 truncate font-sans text-[11px] text-[#A89F8E]">
               {word.reading}
             </div>
           )}
         </div>
 
-        {!compact && (
+        {!compact && !mini && (
           <div className="mt-2 space-y-1 border-t border-white/10 pt-1.5">
             <div className="flex items-center justify-between gap-1">
               <span
                 style={{ color: attrMeta.color }}
-                className="font-serif text-[11px] font-bold"
+                className="truncate font-serif text-[11px] font-bold"
               >
                 {attrMeta.label}
                 <span className="ml-1 font-mono text-[10px] opacity-85">
@@ -229,12 +265,12 @@ export function WordCard({
               </span>
               <span
                 style={{ color: skillMeta.color }}
-                className="border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] font-bold"
+                className="shrink-0 border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-mono text-[10px] font-bold"
               >
                 {skillMeta.shortTag}
               </span>
             </div>
-            <p className="text-[10.5px] leading-snug text-[#CFC8B8] break-words">
+            <p className="line-clamp-3 text-[10.5px] leading-snug text-[#CFC8B8] break-words">
               {word.skillDesc}
             </p>
           </div>
@@ -242,42 +278,55 @@ export function WordCard({
       </div>
 
       {/* Footer: Attribute / Rarity pips (compact) + Bold ATK / DEF */}
-      <div className="relative z-10 flex items-center justify-between gap-1 border-t border-white/10 pt-1.5">
-        {compact ? (
-          <div className="flex min-w-0 items-center gap-1">
-            <span
-              style={{ color: attrMeta.color }}
-              className="shrink-0 font-serif text-[11px] font-bold"
-            >
-              {attrMeta.kanji}
-            </span>
-            <span
-              style={{ color: rankMeta.color }}
-              className="hidden truncate font-mono text-[9px] tracking-tighter opacity-90 sm:inline"
-            >
-              {rankMeta.pips}
-            </span>
-          </div>
-        ) : (
-          <span style={{ color: rankMeta.color }} className="font-mono text-[10px] font-bold">
-            {rankMeta.label}
-          </span>
-        )}
-        <div
-          className={`flex shrink-0 items-center font-mono font-bold ${
-            compact ? "gap-1 text-[10px] sm:gap-1.5 sm:text-[11px]" : "gap-2.5 text-xs"
-          }`}
-        >
+      {mini ? (
+        <div className="relative z-10 flex items-center justify-between gap-0.5 border-t border-white/10 pt-1 font-mono text-[9.5px] font-bold">
           <span className="inline-flex items-center gap-0.5 text-[#F07167]">
-            <Sword className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+            <Sword className="h-2.5 w-2.5 shrink-0" />
             {stats.atk}
           </span>
           <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
-            <Shield className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+            <Shield className="h-2.5 w-2.5 shrink-0" />
             {stats.def}
           </span>
         </div>
-      </div>
+      ) : (
+        <div className="relative z-10 flex items-center justify-between gap-1 border-t border-white/10 pt-1.5">
+          {compact ? (
+            <div className="flex min-w-0 items-center gap-1">
+              <span
+                style={{ color: attrMeta.color }}
+                className="shrink-0 font-serif text-[11px] font-bold"
+              >
+                {attrMeta.kanji}
+              </span>
+              <span
+                style={{ color: rankMeta.color }}
+                className="hidden truncate font-mono text-[9px] tracking-tighter opacity-90 sm:inline"
+              >
+                {rankMeta.pips}
+              </span>
+            </div>
+          ) : (
+            <span style={{ color: rankMeta.color }} className="font-mono text-[10px] font-bold">
+              {rankMeta.label}
+            </span>
+          )}
+          <div
+            className={`flex shrink-0 items-center font-mono font-bold ${
+              compact ? "gap-1 text-[10px] sm:gap-1.5 sm:text-[11px]" : "gap-2.5 text-xs"
+            }`}
+          >
+            <span className="inline-flex items-center gap-0.5 text-[#F07167]">
+              <Sword className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+              {stats.atk}
+            </span>
+            <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
+              <Shield className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+              {stats.def}
+            </span>
+          </div>
+        </div>
+      )}
     </button>
   );
 }

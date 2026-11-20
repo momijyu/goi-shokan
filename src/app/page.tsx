@@ -12,6 +12,7 @@ import {
   Pickaxe,
   Plus,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
 import { WordCard } from "@/components/WordCard";
@@ -40,7 +41,7 @@ const SAMPLE_TEXTS: { label: string; text: string }[] = [
 
 export default function SummonHallPage() {
   const { save, setSave } = useSaveData();
-  const [text, setText] = useState(SAMPLE_TEXTS[0].text);
+  const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState(false);
@@ -131,16 +132,23 @@ export default function SummonHallPage() {
             サンプル文で試す
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {SAMPLE_TEXTS.map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => setText(s.text)}
-                className="border border-[#3A332A] bg-[#18151E] px-3 py-1.5 text-xs text-[#DCD4C2] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
-              >
-                {s.label}
-              </button>
-            ))}
+            {SAMPLE_TEXTS.map((s) => {
+              const isSelected = text === s.text;
+              return (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => setText(isSelected ? "" : s.text)}
+                  className={`border px-3 py-1.5 text-xs transition-colors ${
+                    isSelected
+                      ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
+                      : "border-[#3A332A] bg-[#18151E] text-[#DCD4C2] hover:border-[#8A7348] hover:text-[#E3B94E]"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -154,10 +162,20 @@ export default function SummonHallPage() {
         />
 
         <div className="mt-3 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3 font-mono text-xs text-[#A89F8E]">
+          <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs text-[#A89F8E]">
             <span>文字数: {text.length} / 2,500</span>
             <span>|</span>
             <span>所持語彙: {Object.keys(save.ownedWords).length}種</span>
+            {text.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setText("")}
+                className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#18151E] px-2 py-0.5 text-[11px] text-[#CFC8B8] hover:border-[#C93A2B] hover:text-[#E05A47]"
+              >
+                <X className="h-3 w-3" />
+                <span>消去</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -233,7 +251,7 @@ export default function SummonHallPage() {
             )}
 
             {/* Cards Grid (wider cards so skill text and stats are super legible!) */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-6">
               {result.packCards.map((item, idx) => {
                 const isNew = newTerms.includes(item.entry.term);
                 const isUpgraded = upgradedTerms.includes(item.entry.term);

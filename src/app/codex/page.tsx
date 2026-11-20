@@ -134,7 +134,7 @@ export default function CodexPage() {
                     return (
                       <div
                         key={term}
-                        className="flex min-h-[124px] flex-col items-center justify-center border border-[#242028] bg-[#0B0A0E] p-2 text-center"
+                        className="flex h-[118px] flex-col items-center justify-center border border-[#242028] bg-[#0B0A0E] p-2 text-center sm:h-[140px]"
                       >
                         <Lock className="mb-1 h-3.5 w-3.5 text-[#4A453C]" />
                         <span className="font-serif text-xs text-[#6B6459]">
@@ -156,7 +156,7 @@ export default function CodexPage() {
         <TabsContent value="album" className="space-y-4">
           <AttributeGuideBar />
           <WordFilterBar value={albumFilter} onChange={setAlbumFilter} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
             {filteredAlbum.map((w) => (
               <WordCard
                 key={w.term}
@@ -176,7 +176,7 @@ export default function CodexPage() {
               まだ未知語『異』は観測されていません。新語や独自の造語を含んだ文章を採掘してみてください。
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
               {urList.map((w) => (
                 <WordCard
                   key={w.term}
