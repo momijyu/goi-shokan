@@ -142,7 +142,13 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         setMobileBattleFullscreen,
       }}
     >
-      <div className="flex min-h-dvh flex-col overflow-x-clip bg-[#0B0A0E] text-[#ECE6D8]">
+      <div
+        className={`flex flex-col overflow-x-clip bg-[#0B0A0E] text-[#ECE6D8] ${
+          isMobileDungeonImmersive
+            ? "max-lg:h-dvh max-lg:overflow-hidden max-lg:overscroll-none lg:min-h-dvh"
+            : "min-h-dvh"
+        }`}
+      >
         {/* PC & Top Header (HyperUI-inspired clean structural bar) */}
         <header className="sticky top-0 z-40 border-b border-[#2E2822] bg-[#0B0A0E]">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
@@ -280,7 +286,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         <main
           className={`mx-auto w-full max-w-6xl flex-1 sm:px-6 ${
             isMobileDungeonImmersive
-              ? "px-2.5 pt-2 pb-1 md:pt-4 md:pb-8"
+              ? "min-h-0 px-2.5 pt-1.5 pb-0 max-lg:overflow-y-auto max-lg:overscroll-none lg:pt-4 lg:pb-8"
               : "px-3 pt-4 pb-6 md:pb-8"
           }`}
         >
@@ -290,7 +296,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         {/* Subtle Legal & Data Attribution Footer (Visible on both Mobile and PC; hidden on mobile during active dungeon run to prevent mis-taps & vertical scroll) */}
         <footer
           className={`mx-auto w-full max-w-6xl flex-col gap-1.5 border-t border-[#221D18] px-3 pt-3 pb-20 font-mono text-[10px] text-[#6B6458] sm:px-6 md:flex-row md:items-center md:justify-between md:py-3 ${
-            isMobileDungeonImmersive ? "hidden md:flex" : "flex"
+            isMobileDungeonImmersive ? "hidden lg:flex" : "flex"
           }`}
         >
           <span className="leading-relaxed">
