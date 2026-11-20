@@ -574,7 +574,7 @@ export default function DungeonPage() {
       <section
         className={`mx-auto w-full min-w-0 max-w-[512px] lg:space-y-3 ${
           run.phase === "battle"
-            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:gap-1 max-lg:overflow-hidden max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:gap-1.5 max-lg:overflow-y-auto max-lg:overscroll-none max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
             : "space-y-3"
         }`}
       >
@@ -747,9 +747,9 @@ export default function DungeonPage() {
         {/* === BATTLE PHASE === */}
         {run.phase === "battle" && (
           <>
-            <div className="space-y-1 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-none lg:space-y-3">
+            <div className="space-y-1.5 lg:space-y-3">
               {/* Mobile Compact Enemy Stage (Fits 1 screen without vertical scroll) */}
-              <div className="kaku-frame stage-grid flex flex-col gap-1 p-2 lg:hidden">
+              <div className="kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden">
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <div className="inline-flex items-center gap-1 border border-[#5C3530] bg-[#241212] px-1.5 py-0.5 font-mono text-[10px] text-[#E05A47]">
                     <AlertOctagon className="h-3 w-3 shrink-0" />
@@ -763,7 +763,7 @@ export default function DungeonPage() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <motion.div
                     key={`mob_${run.enemy.id}_${run.enemyHp}`}
                     animate={
@@ -777,13 +777,13 @@ export default function DungeonPage() {
                     <PixelMonster
                       spriteId={run.enemy.spriteId}
                       attribute={run.enemy.attribute}
-                      size={52}
+                      size={60}
                       isBoss={run.enemy.isBoss}
                     />
                   </motion.div>
 
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <h2 className="truncate font-serif text-sm font-extrabold text-[#F2ECE0]">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h2 className="truncate font-serif text-base font-extrabold text-[#F2ECE0]">
                       {run.enemy.name}
                     </h2>
                     <div className="flex items-center justify-between font-mono text-[11px]">
@@ -814,7 +814,7 @@ export default function DungeonPage() {
                 )}
 
                 {/* Fixed-height output line on mobile so layout never jumps on attack/guard */}
-                <div className="flex h-[24px] items-center justify-center border border-[#2E2822] bg-[#0B0A0E]/90 px-2">
+                <div className="flex h-[26px] items-center justify-center border border-[#2E2822] bg-[#0B0A0E]/90 px-2">
                   <AnimatePresence mode="wait">
                     {run.lastOutput && lastFmt ? (
                       <motion.div
@@ -1081,8 +1081,8 @@ export default function DungeonPage() {
               )}
             </div>
 
-            {/* Bottom Controls Group (Pinned comfortably at bottom on mobile, normal flow on PC) */}
-            <div className="shrink-0 space-y-1 max-lg:mt-auto lg:space-y-3">
+            {/* Bottom Controls Group (Flows naturally below enemy/status without blank gap) */}
+            <div className="shrink-0 space-y-1.5 lg:space-y-3">
               {/* Mobile Fixed-Height Card Detail Slot (Above commands so buttons & hand never jump vertically) */}
               <div className="flex h-[52px] flex-col justify-center overflow-hidden border border-[#3A332A] bg-[#17141D] px-2.5 py-1 text-[11px] text-[#DCD4C2] lg:hidden">
                 {selectedCard ? (() => {
@@ -1195,7 +1195,7 @@ export default function DungeonPage() {
 
               {/* Mobile Hand Cards: Slay-the-Spire style single-row animated rail (No vertical expansion!) */}
               <div className="touch-pan-x overflow-x-auto overscroll-x-contain lg:hidden">
-                <div className="mx-auto flex w-max min-w-full items-end justify-center px-3 pt-4 pb-1.5">
+                <div className="mx-auto flex w-max min-w-full items-end justify-center px-3 pt-5 pb-1.5">
                   {run.hand.map((card, idx) => {
                     const cost = getEffectiveCardCost(run, card);
                     const canAfford = run.energy >= cost || hasOverclock;
@@ -1214,7 +1214,7 @@ export default function DungeonPage() {
                         layout
                         animate={
                           isSelected
-                            ? { y: -12, scale: 1.07 }
+                            ? { y: -8, scale: 1.04 }
                             : { y: 0, scale: 1 }
                         }
                         transition={{ type: "spring", stiffness: 420, damping: 28 }}
