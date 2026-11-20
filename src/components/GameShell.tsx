@@ -129,7 +129,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
     <SaveContext.Provider value={{ save, hydrated, setSave, resetSave }}>
       <div className="flex min-h-dvh flex-col bg-[#0B0A0E] text-[#ECE6D8]">
         {/* PC & Top Header (HyperUI-inspired clean structural bar) */}
-        <header className="sticky top-0 z-40 border-b border-[#2E2822] bg-[#0B0A0E]/95">
+        <header className="sticky top-0 z-40 border-b border-[#2E2822] bg-[#0B0A0E]">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="inline-flex h-7 w-7 items-center justify-center border border-[#C93A2B] bg-[#241010] font-serif text-sm font-extrabold text-[#ECE6D8]">
@@ -292,7 +292,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         </footer>
 
         {/* Mobile Bottom Fixed Navigation (Thumb-friendly) */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#322C26] bg-[#0B0A0E]/95 md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#322C26] bg-[#0B0A0E] md:hidden">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
