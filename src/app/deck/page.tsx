@@ -231,12 +231,59 @@ export default function DeckPage() {
             />
           </button>
 
-          {/* Readable Selected Pool Chips (Always open on PC, collapsible 2-col on mobile) */}
-          <div
-            className={`${
-              poolOpenMobile ? "grid" : "hidden"
-            } grid-cols-2 gap-1.5 md:grid md:grid-cols-2 lg:grid-cols-3`}
-          >
+          {/* Mobile Ultra-Compact 1-Line Tag Pills (No ATK/DEF clutter; fits 20 cards in ~5 rows) */}
+          {poolOpenMobile && (
+            <div className="flex flex-wrap gap-1.5 md:hidden">
+              {poolWords.map((w) => {
+                const rankMeta = RANK_META[w.rank];
+                const isAce = w.term === save.aceTerm;
+                return (
+                  <div
+                    key={w.term}
+                    style={{
+                      borderColor: isAce ? "#D4AF37" : ATTR_META[w.attribute].border,
+                      backgroundColor: ATTR_META[w.attribute].tintBg,
+                    }}
+                    className="inline-flex max-w-full items-center gap-1 border px-1.5 py-1 text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setDetailWord(w)}
+                      className="flex min-w-0 items-center gap-1 text-left"
+                    >
+                      <span
+                        style={{
+                          color: rankMeta.color,
+                          backgroundColor: rankMeta.bg,
+                          borderColor: rankMeta.border,
+                        }}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center border font-serif text-[10px] font-bold leading-none"
+                      >
+                        {rankMeta.kanji}
+                      </span>
+                      <span className="max-w-[110px] truncate font-serif text-xs font-bold text-[#F2ECE0]">
+                        {w.term}
+                      </span>
+                      {isAce && <Crown className="h-3 w-3 shrink-0 text-[#E3B94E]" />}
+                    </button>
+                    {poolWords.length > 6 && (
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePool(w.term)}
+                        title="マイ辞書から外す"
+                        className="shrink-0 p-0.5 text-[#8E8678] hover:text-[#E05A47]"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* PC Readable Selected Pool Chips (Always open on PC) */}
+          <div className="hidden gap-1.5 md:grid md:grid-cols-2 lg:grid-cols-3">
             {poolWords.map((w) => {
               const stats = getEffectiveStats(w, w.obtainCount);
               const rankMeta = RANK_META[w.rank];
@@ -249,12 +296,12 @@ export default function DeckPage() {
                     borderColor: isAce ? "#D4AF37" : ATTR_META[w.attribute].border,
                     backgroundColor: ATTR_META[w.attribute].tintBg,
                   }}
-                  className="flex min-w-0 items-center justify-between gap-1 border px-2 py-1.5 text-xs sm:gap-2 sm:px-2.5"
+                  className="flex min-w-0 items-center justify-between gap-2 border px-2.5 py-1.5 text-xs"
                 >
                   <button
                     type="button"
                     onClick={() => setDetailWord(w)}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left sm:gap-2"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <span
                       style={{
@@ -273,7 +320,7 @@ export default function DeckPage() {
                         </span>
                         {isAce && <Crown className="h-3 w-3 shrink-0 text-[#E3B94E]" />}
                       </div>
-                      <div className="flex items-center gap-1.5 font-mono text-[10px] sm:gap-2">
+                      <div className="flex items-center gap-2 font-mono text-[10px]">
                         <span className="inline-flex items-center gap-0.5 text-[#F07167]">
                           <Sword className="h-2.5 w-2.5" />
                           {stats.atk}
@@ -284,7 +331,7 @@ export default function DeckPage() {
                         </span>
                         <span
                           style={{ color: skillMeta.color }}
-                          className="hidden truncate sm:inline"
+                          className="truncate"
                         >
                           {skillMeta.shortTag}
                         </span>
