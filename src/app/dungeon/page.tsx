@@ -187,7 +187,9 @@ function renderRunMultiplierRows(run: RunState) {
     <div className="space-y-2 font-mono text-xs">
       <div className="flex justify-between">
         <span className="text-[#968E7E]">基礎加算</span>
-        <span className="text-[#ECE6D8]">+{run.battleFlatAdd}</span>
+        <span className="text-[#ECE6D8]">
+          +{formatJapaneseNumber(run.battleFlatAdd).text}
+        </span>
       </div>
       <div className="flex justify-between">
         <span className="text-[#968E7E]">戦闘乗算</span>
@@ -202,6 +204,12 @@ function renderRunMultiplierRows(run: RunState) {
       <div className="flex justify-between">
         <span className="text-[#968E7E]">指数（べき乗）</span>
         <span className="font-bold text-[#E05A47]">^{run.battleExponent}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-[#968E7E]">永続基礎値</span>
+        <span className="font-bold text-[#9BD1B5]">
+          +{formatJapaneseNumber(run.permanentFlatAdd).text}
+        </span>
       </div>
       {run.tengenPermanentMult > 1 && (
         <div className="flex justify-between">
