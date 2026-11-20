@@ -347,10 +347,13 @@ export default function DungeonPage() {
               <p className="mt-1 text-xs text-[#A89F8E]">
                 所持語彙から毎回ランダム選出（常×4・良×2）＋エース1枚で潜入。道中でマイ辞書（{save.deckPoolTerms.length}枚）から3択ドロップし、遺物の組み合わせで強大な言霊を構築せよ。
               </p>
+              <p className="mt-1.5 font-mono text-[11px] text-[#E3B94E] lg:hidden">
+                ★ 持ち込みエース：{aceWord.term}（マイ辞書 {save.deckPoolTerms.length}/30語）
+              </p>
             </div>
             <Link
               href="/deck"
-              className="inline-flex shrink-0 items-center gap-2 border border-[#8A7348] bg-[#261E0E] px-4 py-2 font-serif text-xs font-bold text-[#E3B94E] hover:bg-[#352A14]"
+              className="inline-flex shrink-0 items-center justify-center gap-2 border border-[#8A7348] bg-[#261E0E] px-4 py-2 font-serif text-xs font-bold text-[#E3B94E] hover:bg-[#352A14]"
             >
               <span>マイ辞書・エース変更</span>
             </Link>
@@ -382,7 +385,7 @@ export default function DungeonPage() {
           </div>
         </section>
 
-        {/* Normal Stages + Ace Preview */}
+        {/* Normal Stages + PC Ace Preview */}
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-2">
             {STAGES.map((stage) => {
@@ -423,8 +426,8 @@ export default function DungeonPage() {
             })}
           </div>
 
-          {/* Current Ace & Pool Preview */}
-          <div className="border border-[#2E2822] bg-[#121016] p-4">
+          {/* Current Ace & Pool Preview (PC sidebar only; mobile shows compact badge above) */}
+          <div className="hidden border border-[#2E2822] bg-[#121016] p-4 lg:block">
             <p className="font-mono text-[10px] tracking-widest text-[#8A7348]">
               持ち込みエース（1枚）
             </p>
