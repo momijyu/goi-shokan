@@ -253,6 +253,7 @@ export default function DungeonPage() {
   const [activeRelicDetail, setActiveRelicDetail] = useState<RelicDef | null>(null);
   const [routeOpenMobile, setRouteOpenMobile] = useState(false);
   const [selectedRewardCardId, setSelectedRewardCardId] = useState<string | null>(null);
+  const [selectedLibraryCardId, setSelectedLibraryCardId] = useState<string | null>(null);
 
   useEffect(() => {
     setMobileBattleFullscreen(Boolean(run));
@@ -1648,184 +1649,335 @@ export default function DungeonPage() {
           })()}
 
         {/* === EVENT: LIBRARY PURGE / UPGRADE / HEAL === */}
-        {run.phase === "event_library" && (
-          <div className="kaku-frame space-y-4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <BookMarked className="h-5 w-5 shrink-0 text-[#E3B94E]" />
-                <div>
-                  <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
-                    静寂の書庫（推敲・休息）
-                  </h2>
-                  <p className="text-xs text-[#A89F8E]">
-                    休息・『不』の一括削除・カードの削除または+3強化を行える（最大2回）。
-                  </p>
+        {run.phase === "event_library" && (() => {
+          const selectedLibCard =
+            run.deck.find((c) => c.instanceId === selectedLibraryCardId) ?? null;
+          const isAscetic = run.relicIds.includes("black_pact_ascetic");
+          const fCount = run.deck.filter((c) => c.rank === "F").length;
+          const healAmt = Math.floor(run.playerMaxHp * 0.35);
+          return (
+            <div className="kaku-frame space-y-2.5 p-3 lg:space-y-4 lg:p-5">
+              {/* Compact Header */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <BookMarked className="h-4 w-4 shrink-0 text-[#E3B94E] lg:h-5 lg:w-5" />
+                  <div>
+                    <h2 className="font-serif text-base font-extrabold text-[#F2ECE0] lg:text-lg">
+                      静寂の書庫（推敲・休息）
+                    </h2>
+                    <p className="hidden text-xs text-[#A89F8E] lg:block">
+                      休息・『不』の一括削除・カードの削除または+3強化を行える（最大2回）。
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <span className="inline-flex items-center gap-1 border border-[#2F7D5B] bg-[#11221B] px-2 py-0.5 font-mono text-[11px] font-bold text-[#57B889] lg:px-2.5 lg:py-1 lg:text-xs">
+                    <Heart className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
+                    {run.playerHp}/{run.playerMaxHp}
+                  </span>
+                  <span className="shrink-0 border border-[#8A7348] bg-[#16131C] px-2 py-0.5 font-mono text-[11px] font-bold text-[#E3B94E] lg:px-2.5 lg:py-1 lg:text-xs">
+                    残 {run.libraryActionsRemaining}回
+                  </span>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 border border-[#2F7D5B] bg-[#11221B] px-2.5 py-1 font-mono text-xs font-bold text-[#57B889]">
-                  <Heart className="h-3.5 w-3.5" />
-                  HP: {run.playerHp} / {run.playerMaxHp}
-                </span>
-                <span className="shrink-0 border border-[#8A7348] bg-[#16131C] px-2.5 py-1 font-mono text-xs font-bold text-[#E3B94E]">
-                  残り行動回数: {run.libraryActionsRemaining}
-                </span>
+
+              {/* Global Actions (Heal & Purge F) */}
+              <div className="grid grid-cols-2 gap-1.5 lg:gap-2">
+                <button
+                  type="button"
+                  disabled={isAscetic}
+                  onClick={() => setRun(resolveLibraryEvent(run, "heal"))}
+                  className="w-full border border-[#2F7D5B] bg-[#11221B] px-2 py-2 font-serif text-xs font-bold text-[#57B889] hover:bg-[#173026] disabled:cursor-not-allowed disabled:opacity-40 lg:px-3 lg:py-2.5 lg:text-sm"
+                >
+                  <span className="lg:hidden">
+                    {isAscetic ? "休息不可（禁欲）" : `休息 (HP+${healAmt})`}
+                  </span>
+                  <span className="hidden lg:inline">
+                    {isAscetic
+                      ? "書庫で休息する（禁欲の代償により利用不可）"
+                      : `書庫で休息する（HP+${healAmt}／最大HPの35%回復）`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={fCount === 0 || run.deck.length <= 4}
+                  onClick={() => {
+                    setRun(resolveLibraryEvent(run, "purge_all_f"));
+                    setSelectedLibraryCardId(null);
+                  }}
+                  className="w-full border border-[#8E352E] bg-[#241315] px-2 py-2 font-serif text-xs font-bold text-[#F08A7E] hover:bg-[#33191C] disabled:cursor-not-allowed disabled:opacity-40 lg:px-3 lg:py-2.5 lg:text-sm"
+                >
+                  『不』一括削除（{fCount}枚）
+                </button>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                disabled={run.relicIds.includes("black_pact_ascetic")}
-                onClick={() => setRun(resolveLibraryEvent(run, "heal"))}
-                className="w-full border border-[#2F7D5B] bg-[#11221B] px-3 py-2.5 font-serif text-sm font-bold text-[#57B889] hover:bg-[#173026] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {run.relicIds.includes("black_pact_ascetic")
-                  ? "書庫で休息する（禁欲の代償により利用不可）"
-                  : `書庫で休息する（HP+${Math.floor(run.playerMaxHp * 0.35)}／最大HPの35%回復）`}
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !run.deck.some((c) => c.rank === "F") || run.deck.length <= 4
-                }
-                onClick={() => setRun(resolveLibraryEvent(run, "purge_all_f"))}
-                className="w-full border border-[#8E352E] bg-[#241315] px-3 py-2.5 font-serif text-sm font-bold text-[#F08A7E] hover:bg-[#33191C] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                『不』を一括削除（
-                {run.deck.filter((c) => c.rank === "F").length}枚）
-              </button>
-            </div>
+              {/* Mobile: Slay-the-Spire style horizontal deck rail + detail + actions (Fits 1 screen) */}
+              <div className="space-y-2 lg:hidden">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className="text-[#8A7348]">
+                    推敲するカードを選択（左右スワイプ可）
+                  </span>
+                  <span className="text-[#968E7E]">デッキ {run.deck.length}枚</span>
+                </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="font-mono text-[11px] text-[#8A7348]">
-                  カードを選んで推敲（+3強化 or 削除）：
-                </p>
-                <span className="font-mono text-[11px] text-[#968E7E]">
-                  デッキ {run.deck.length}枚
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-2.5 sm:max-h-[480px] sm:grid-cols-2 sm:overflow-y-auto sm:pr-1">
-                {run.deck.map((c) => {
-                  const rankMeta = RANK_META[c.rank];
-                  const attrMeta = ATTR_META[c.attribute];
-                  const skillMeta = SKILL_META[c.skillType];
-                  const effectiveCost = getEffectiveCardCost(run, c);
-                  const beforeStats = getEffectiveStats(c, c.plusLevel);
-                  const afterStats = getEffectiveStats(c, c.plusLevel + 3);
+                <div className="touch-pan-x overflow-x-auto overscroll-x-contain">
+                  <div className="mx-auto flex w-max min-w-full items-end justify-start gap-1.5 px-2 pt-4 pb-1.5">
+                    {run.deck.map((c, idx) => {
+                      const isSelected = selectedLibCard?.instanceId === c.instanceId;
+                      return (
+                        <motion.div
+                          key={c.instanceId}
+                          layout
+                          animate={
+                            isSelected ? { y: -10, scale: 1.05 } : { y: 0, scale: 1 }
+                          }
+                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                          style={{ zIndex: isSelected ? 20 : idx + 1 }}
+                          className="relative shrink-0"
+                        >
+                          <WordCard
+                            word={c}
+                            effectiveCost={getEffectiveCardCost(run, c)}
+                            plusLevel={c.plusLevel}
+                            selected={isSelected}
+                            isTemporaryTrial={c.isTemporaryTrial}
+                            compact
+                            disableLift
+                            className="w-[88px] min-h-[96px]"
+                            onClick={() =>
+                              setSelectedLibraryCardId((prev) =>
+                                prev === c.instanceId ? null : c.instanceId
+                              )
+                            }
+                          />
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                  return (
-                    <div
-                      key={c.instanceId}
-                      className="flex flex-col justify-between gap-2 border border-[#2E2822] bg-[#0B0A0E] p-3 text-xs transition-colors hover:border-[#5C4E38]"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <span
-                              style={{
-                                color: rankMeta.color,
-                                backgroundColor: rankMeta.bg,
-                                borderColor: rankMeta.border,
-                              }}
-                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center border font-serif text-[11px] font-extrabold"
-                            >
-                              {rankMeta.kanji}
+                {/* Fixed-height Selected Card Upgrade Preview */}
+                <div className="flex min-h-[70px] flex-col justify-center border border-[#3A332A] bg-[#17141D] px-2.5 py-1.5 text-xs text-[#DCD4C2]">
+                  {selectedLibCard ? (() => {
+                    const rankMeta = RANK_META[selectedLibCard.rank];
+                    const attrMeta = ATTR_META[selectedLibCard.attribute];
+                    const skillMeta = SKILL_META[selectedLibCard.skillType];
+                    const before = getEffectiveStats(selectedLibCard, selectedLibCard.plusLevel);
+                    const after = getEffectiveStats(selectedLibCard, selectedLibCard.plusLevel + 3);
+                    const effCost = getEffectiveCardCost(run, selectedLibCard);
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
+                          <div className="flex min-w-0 items-center gap-1">
+                            <span style={{ color: rankMeta.color }} className="shrink-0 font-serif font-bold">
+                              [{rankMeta.kanji}]
                             </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="truncate font-serif text-sm font-extrabold text-[#F2ECE0]">
-                                  {c.term}
-                                </span>
-                                {c.plusLevel > 0 && (
-                                  <span className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[#E3B94E]">
-                                    +{c.plusLevel}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="block truncate font-sans text-[10px] text-[#8E8678]">
-                                {c.reading}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex shrink-0 items-center gap-1 font-mono text-[10px]">
-                            <span className="border border-[#3A332A] bg-[#16131C] px-1.5 py-0.5 font-bold text-[#ECE6D8]">
-                              {effectiveCost}コス
-                            </span>
-                            <span
-                              style={{ color: attrMeta.color }}
-                              className="border border-[#2E2822] bg-[#121016] px-1.5 py-0.5 font-bold"
-                            >
-                              {attrMeta.label}
+                            <strong className="truncate font-serif text-xs text-[#F4D06F]">
+                              {selectedLibCard.term}
+                            </strong>
+                            {selectedLibCard.plusLevel > 0 && (
+                              <span className="shrink-0 text-[#E3B94E]">+{selectedLibCard.plusLevel}</span>
+                            )}
+                            <span style={{ color: attrMeta.color }} className="shrink-0">
+                              [{attrMeta.label}]
                             </span>
                           </div>
+                          <span className="shrink-0 text-[#ECE6D8]">{effCost}コス</span>
                         </div>
-
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 border-y border-[#1F1B17] py-1.5 font-mono text-[11px]">
-                          <div className="flex items-center gap-2.5">
-                            <span className="inline-flex items-center gap-1 text-[#F07167]">
+                        <div className="flex items-center justify-between gap-2 font-mono text-[10px]">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-0.5 text-[#F07167]">
                               <Sword className="h-3 w-3" />
-                              {beforeStats.atk}
-                              <span className="text-[#E3B94E]">→{afterStats.atk}</span>
+                              {before.atk}
+                              <span className="text-[#E3B94E]">→{after.atk}</span>
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[#69A3D9]">
+                            <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
                               <Shield className="h-3 w-3" />
-                              {beforeStats.def}
-                              <span className="text-[#E3B94E]">→{afterStats.def}</span>
+                              {before.def}
+                              <span className="text-[#E3B94E]">→{after.def}</span>
                             </span>
                           </div>
                           <span
                             style={{ color: skillMeta.color }}
-                            className="border border-[#3A332A] bg-[#141218] px-1.5 py-0.5 text-[10px] font-bold"
+                            className="border border-[#2E2822] bg-[#0B0A0E] px-1.5 py-0.5 font-bold"
                           >
                             {skillMeta.shortTag}
                           </span>
                         </div>
-
-                        <p className="text-[11px] leading-relaxed text-[#CFC8B8]">
-                          {c.skillDesc}
+                        <p className="line-clamp-2 text-[10px] leading-snug text-[#CFC8B8]">
+                          {selectedLibCard.skillDesc}
                         </p>
                       </div>
+                    );
+                  })() : (
+                    <p className="text-center font-mono text-[10px] text-[#787166]">
+                      上のカードをタップして「+3強化」または「削除」を選択
+                    </p>
+                  )}
+                </div>
 
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setRun(resolveLibraryEvent(run, "upgrade", c.instanceId))
-                          }
-                          className="flex-1 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1.5 font-mono text-[11px] font-bold text-[#E3B94E] hover:bg-[#362A14]"
-                        >
-                          +3強化（攻防+{PLUS_STAT_STEP * 3}）
-                        </button>
-                        {run.deck.length > 4 && (
+                {/* Upgrade & Remove Action Buttons */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!selectedLibCard}
+                    onClick={() => {
+                      if (!selectedLibCard) return;
+                      setRun(resolveLibraryEvent(run, "upgrade", selectedLibCard.instanceId));
+                    }}
+                    className="border border-[#8A7348] bg-[#261E0E] py-2 font-mono text-xs font-bold text-[#E3B94E] hover:bg-[#362A14] disabled:cursor-not-allowed disabled:border-[#2A241E] disabled:bg-[#121016] disabled:text-[#5C564C]"
+                  >
+                    +3強化（攻防+{PLUS_STAT_STEP * 3}）
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedLibCard || run.deck.length <= 4}
+                    onClick={() => {
+                      if (!selectedLibCard) return;
+                      setRun(resolveLibraryEvent(run, "remove", selectedLibCard.instanceId));
+                      setSelectedLibraryCardId(null);
+                    }}
+                    className="border border-[#5C3530] bg-[#261A19] py-2 font-mono text-xs font-bold text-[#E05A47] hover:bg-[#38211F] disabled:cursor-not-allowed disabled:border-[#2A241E] disabled:bg-[#121016] disabled:text-[#5C564C]"
+                  >
+                    {run.deck.length <= 4 ? "削除不可(最低4枚)" : "カードを削除"}
+                  </button>
+                </div>
+              </div>
+
+              {/* PC: Original 2-column scrollable card list */}
+              <div className="hidden space-y-2 lg:block">
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-[11px] text-[#8A7348]">
+                    カードを選んで推敲（+3強化 or 削除）：
+                  </p>
+                  <span className="font-mono text-[11px] text-[#968E7E]">
+                    デッキ {run.deck.length}枚
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 max-h-[480px] overflow-y-auto pr-1">
+                  {run.deck.map((c) => {
+                    const rankMeta = RANK_META[c.rank];
+                    const attrMeta = ATTR_META[c.attribute];
+                    const skillMeta = SKILL_META[c.skillType];
+                    const effectiveCost = getEffectiveCardCost(run, c);
+                    const beforeStats = getEffectiveStats(c, c.plusLevel);
+                    const afterStats = getEffectiveStats(c, c.plusLevel + 3);
+
+                    return (
+                      <div
+                        key={c.instanceId}
+                        className="flex flex-col justify-between gap-2 border border-[#2E2822] bg-[#0B0A0E] p-3 text-xs transition-colors hover:border-[#5C4E38]"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <span
+                                style={{
+                                  color: rankMeta.color,
+                                  backgroundColor: rankMeta.bg,
+                                  borderColor: rankMeta.border,
+                                }}
+                                className="inline-flex h-5 w-5 shrink-0 items-center justify-center border font-serif text-[11px] font-extrabold"
+                              >
+                                {rankMeta.kanji}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate font-serif text-sm font-extrabold text-[#F2ECE0]">
+                                    {c.term}
+                                  </span>
+                                  {c.plusLevel > 0 && (
+                                    <span className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-1 py-0.5 font-mono text-[10px] font-bold leading-none text-[#E3B94E]">
+                                      +{c.plusLevel}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="block truncate font-sans text-[10px] text-[#8E8678]">
+                                  {c.reading}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1 font-mono text-[10px]">
+                              <span className="border border-[#3A332A] bg-[#16131C] px-1.5 py-0.5 font-bold text-[#ECE6D8]">
+                                {effectiveCost}コス
+                              </span>
+                              <span
+                                style={{ color: attrMeta.color }}
+                                className="border border-[#2E2822] bg-[#121016] px-1.5 py-0.5 font-bold"
+                              >
+                                {attrMeta.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-y border-[#1F1B17] py-1.5 font-mono text-[11px]">
+                            <div className="flex items-center gap-2.5">
+                              <span className="inline-flex items-center gap-1 text-[#F07167]">
+                                <Sword className="h-3 w-3" />
+                                {beforeStats.atk}
+                                <span className="text-[#E3B94E]">→{afterStats.atk}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[#69A3D9]">
+                                <Shield className="h-3 w-3" />
+                                {beforeStats.def}
+                                <span className="text-[#E3B94E]">→{afterStats.def}</span>
+                              </span>
+                            </div>
+                            <span
+                              style={{ color: skillMeta.color }}
+                              className="border border-[#3A332A] bg-[#141218] px-1.5 py-0.5 text-[10px] font-bold"
+                            >
+                              {skillMeta.shortTag}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] leading-relaxed text-[#CFC8B8]">
+                            {c.skillDesc}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 pt-1">
                           <button
                             type="button"
                             onClick={() =>
-                              setRun(resolveLibraryEvent(run, "remove", c.instanceId))
+                              setRun(resolveLibraryEvent(run, "upgrade", c.instanceId))
                             }
-                            className="border border-[#5C3530] bg-[#261A19] px-3 py-1.5 font-mono text-[11px] font-bold text-[#E05A47] hover:bg-[#38211F]"
+                            className="flex-1 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1.5 font-mono text-[11px] font-bold text-[#E3B94E] hover:bg-[#362A14]"
                           >
-                            削除
+                            +3強化（攻防+{PLUS_STAT_STEP * 3}）
                           </button>
-                        )}
+                          {run.deck.length > 4 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRun(resolveLibraryEvent(run, "remove", c.instanceId))
+                              }
+                              className="border border-[#5C3530] bg-[#261A19] px-3 py-1.5 font-mono text-[11px] font-bold text-[#E05A47] hover:bg-[#38211F]"
+                            >
+                              削除
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={() => setRun(resolveLibraryEvent(run, "leave"))}
-              className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-xs text-[#968E7E] hover:border-[#8A7348] hover:text-[#ECE6D8]"
-            >
-              書庫を出る（次の階層へ進む）
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={() => {
+                  setRun(resolveLibraryEvent(run, "leave"));
+                  setSelectedLibraryCardId(null);
+                }}
+                className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-xs text-[#968E7E] hover:border-[#8A7348] hover:text-[#ECE6D8]"
+              >
+                書庫を出る（次の階層へ進む）
+              </button>
+            </div>
+          );
+        })()}
 
         {/* === STAGE CLEAR (Option for Endless!) === */}
         {run.phase === "stage_clear" && (
