@@ -37,6 +37,8 @@ interface SaveContextValue {
   hydrated: boolean;
   setSave: (next: PlayerSaveData) => void;
   resetSave: () => void;
+  mobileBattleFullscreen: boolean;
+  setMobileBattleFullscreen: (active: boolean) => void;
 }
 
 const SaveContext = createContext<SaveContextValue>({
@@ -44,6 +46,8 @@ const SaveContext = createContext<SaveContextValue>({
   hydrated: false,
   setSave: () => {},
   resetSave: () => {},
+  mobileBattleFullscreen: false,
+  setMobileBattleFullscreen: () => {},
 });
 
 export function useSaveData() {
@@ -94,6 +98,8 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   );
   const [guestNameInput, setGuestNameInput] = useState("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [mobileBattleFullscreen, setMobileBattleFullscreen] = useState(false);
+  const isMobileDungeonImmersive = mobileBattleFullscreen && pathname === "/dungeon";
 
   const setSave = (next: PlayerSaveData) => {
     clientSnapshotCache = next;
@@ -126,8 +132,17 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const bestFmt = formatJapaneseNumber(save.bestDamage);
 
   return (
-    <SaveContext.Provider value={{ save, hydrated, setSave, resetSave }}>
-      <div className="flex min-h-dvh flex-col bg-[#0B0A0E] text-[#ECE6D8]">
+    <SaveContext.Provider
+      value={{
+        save,
+        hydrated,
+        setSave,
+        resetSave,
+        mobileBattleFullscreen,
+        setMobileBattleFullscreen,
+      }}
+    >
+      <div className="flex min-h-dvh flex-col overflow-x-clip bg-[#0B0A0E] text-[#ECE6D8]">
         {/* PC & Top Header (HyperUI-inspired clean structural bar) */}
         <header className="sticky top-0 z-40 border-b border-[#2E2822] bg-[#0B0A0E]">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
@@ -262,12 +277,22 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Main Content */}
-        <main className="mx-auto w-full max-w-6xl flex-1 px-3 pt-4 pb-6 sm:px-6 md:pb-8">
+        <main
+          className={`mx-auto w-full max-w-6xl flex-1 sm:px-6 ${
+            isMobileDungeonImmersive
+              ? "px-2.5 pt-2 pb-1 md:pt-4 md:pb-8"
+              : "px-3 pt-4 pb-6 md:pb-8"
+          }`}
+        >
           {children}
         </main>
 
-        {/* Subtle Legal & Data Attribution Footer (Visible on both Mobile and PC) */}
-        <footer className="mx-auto flex w-full max-w-6xl flex-col gap-1.5 border-t border-[#221D18] px-3 pt-3 pb-20 font-mono text-[10px] text-[#6B6458] sm:px-6 md:flex-row md:items-center md:justify-between md:py-3">
+        {/* Subtle Legal & Data Attribution Footer (Visible on both Mobile and PC; hidden on mobile during active dungeon run to prevent mis-taps & vertical scroll) */}
+        <footer
+          className={`mx-auto w-full max-w-6xl flex-col gap-1.5 border-t border-[#221D18] px-3 pt-3 pb-20 font-mono text-[10px] text-[#6B6458] sm:px-6 md:flex-row md:items-center md:justify-between md:py-3 ${
+            isMobileDungeonImmersive ? "hidden md:flex" : "flex"
+          }`}
+        >
           <span className="leading-relaxed">
             辞書・語釈：kuromoji (Apache-2.0) / IPAdic (NAIST・ICOT) / SudachiDict (Apache-2.0) / 日本語WordNet (NICT)
           </span>
@@ -291,27 +316,29 @@ export function GameShell({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
 
-        {/* Mobile Bottom Fixed Navigation (Thumb-friendly) */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#322C26] bg-[#0B0A0E] md:hidden">
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] ${
-                  active
-                    ? "border-t-2 border-[#C93A2B] bg-[#16131B] font-bold text-[#E3B94E]"
-                    : "text-[#8E8678]"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Mobile Bottom Fixed Navigation (Thumb-friendly; hidden during active dungeon run to avoid mis-taps & browser bar overlap) */}
+        {!isMobileDungeonImmersive && (
+          <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#322C26] bg-[#0B0A0E] pb-[env(safe-area-inset-bottom)] md:hidden">
+            {NAV_ITEMS.map((item) => {
+              const active = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] ${
+                    active
+                      ? "border-t-2 border-[#C93A2B] bg-[#16131B] font-bold text-[#E3B94E]"
+                      : "text-[#8E8678]"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </SaveContext.Provider>
   );

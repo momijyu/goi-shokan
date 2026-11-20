@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertOctagon,
   BookMarked,
   Calendar,
+  ChevronDown,
   ChevronRight,
   Compass,
   Flame,
@@ -242,7 +243,7 @@ function renderRunMultiplierRows(run: RunState) {
 }
 
 export default function DungeonPage() {
-  const { save, hydrated, setSave } = useSaveData();
+  const { save, hydrated, setSave, setMobileBattleFullscreen } = useSaveData();
   const [run, setRun] = useState<RunState | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [relicModalOpen, setRelicModalOpen] = useState(false);
@@ -250,6 +251,12 @@ export default function DungeonPage() {
   const [deckModalOpen, setDeckModalOpen] = useState(false);
   const [deckTab, setDeckTab] = useState<"all" | "draw" | "discard">("all");
   const [activeRelicDetail, setActiveRelicDetail] = useState<RelicDef | null>(null);
+  const [routeOpenMobile, setRouteOpenMobile] = useState(false);
+
+  useEffect(() => {
+    setMobileBattleFullscreen(Boolean(run));
+    return () => setMobileBattleFullscreen(false);
+  }, [run, setMobileBattleFullscreen]);
 
   const finalizeRunRecord = (finalRun: RunState, cleared: boolean) => {
     const hadWhite = finalRun.relicIds.some((id) => id.startsWith("white_revelation"));
@@ -453,7 +460,7 @@ export default function DungeonPage() {
   const hasOverclock = run.relicIds.includes("overclock");
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,512px)_260px] lg:justify-center">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,512px)_260px] lg:justify-center">
       {/* PC Left Panel: Selected Card Details (pinned top) & Compact Scrollable Relics */}
       <aside className="hidden space-y-3 lg:block">
         <div className="border border-[#2E2822] bg-[#121016] p-3">
@@ -559,36 +566,42 @@ export default function DungeonPage() {
         </div>
       </aside>
 
-      {/* Center Unified Stage (Same layout & ergonomics on Mobile and PC!) */}
-      <section className="mx-auto w-full max-w-[512px] space-y-3">
+      {/* Center Unified Stage (Compact single-screen fit on Mobile, full desktop panel on lg+) */}
+      <section
+        className={`mx-auto w-full min-w-0 max-w-[512px] lg:space-y-3 ${
+          run.phase === "battle"
+            ? "max-lg:flex max-lg:min-h-[calc(100dvh-64px)] max-lg:flex-col max-lg:gap-1.5 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            : "space-y-3"
+        }`}
+      >
         {/* Top Floor & Mobile Relic / Deck Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border border-[#2E2822] bg-[#121016] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 border border-[#2E2822] bg-[#121016] px-2.5 py-1.5 lg:gap-2 lg:px-3 lg:py-2">
           <div className="min-w-0">
-            <span className="block truncate font-mono text-[10px] text-[#8A7348]">
+            <span className="hidden truncate font-mono text-[10px] text-[#8A7348] lg:block">
               {run.stageName}
             </span>
-            <div className="font-serif text-sm font-bold text-[#F2ECE0]">
+            <div className="font-serif text-xs font-bold text-[#F2ECE0] lg:text-sm">
               第{run.floor}階{" "}
               {run.isEndless ? (
                 <span className="text-[#C93A2B]">
                   （無間 {run.floor - run.totalStageFloors}層目）
                 </span>
               ) : (
-                <span className="font-mono text-xs text-[#968E7E]">
+                <span className="font-mono text-[11px] text-[#968E7E] lg:text-xs">
                   / {run.totalStageFloors}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1 lg:gap-1.5">
             <button
               type="button"
               onClick={() => {
                 setDeckTab("all");
                 setDeckModalOpen(true);
               }}
-              className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[11px] text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#ECE6D8]"
+              className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[10px] text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#ECE6D8] lg:text-[11px]"
             >
               <Layers className="h-3 w-3 text-[#8A7348]" />
               <span>デッキ ({run.deck.length})</span>
@@ -596,14 +609,14 @@ export default function DungeonPage() {
             <button
               type="button"
               onClick={() => setRelicModalOpen(true)}
-              className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[11px] text-[#E3B94E] lg:hidden"
+              className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[10px] text-[#E3B94E] lg:hidden"
             >
               遺物 ({relics.length})
             </button>
             <button
               type="button"
               onClick={() => setHudModalOpen(true)}
-              className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[11px] text-[#CFC8B8] hover:border-[#8A7348] lg:hidden"
+              className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[10px] text-[#CFC8B8] hover:border-[#8A7348] lg:hidden"
             >
               戦況・履歴
             </button>
@@ -617,8 +630,66 @@ export default function DungeonPage() {
           </div>
         </div>
 
-        {/* Progression Stepper & Transition Banner */}
-        <div className="border border-[#2E2822] bg-[#100E14] px-2.5 py-2 space-y-2">
+        {/* Mobile Route Collapsible Bar (Always expanded outside battle; collapsible during battle to fit 1 screen) */}
+        <div className="border border-[#2E2822] bg-[#100E14] px-2.5 py-1.5 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setRouteOpenMobile((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-2 text-left font-mono text-[10px] text-[#E3B94E]"
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <Compass className="h-3 w-3 shrink-0 text-[#8A7348]" />
+              <span className="truncate">{getTransitionBannerText(run)}</span>
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 shrink-0 text-[#8A7348] transition-transform ${
+                routeOpenMobile || run.phase !== "battle" ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {(routeOpenMobile || run.phase !== "battle") && (
+            <div className="mt-1.5 flex items-center gap-1 overflow-x-auto border-t border-[#221D18] pt-1.5 pb-0.5">
+              {buildDungeonRouteNodes(run).map((node, idx, arr) => {
+                const isCurrent = node.status === "current";
+                const isDone = node.status === "done";
+                const baseChip =
+                  node.kind === "library"
+                    ? "border-[#2F7D5B] text-[#57B889]"
+                    : node.kind === "covenant"
+                      ? "border-[#8E352E] text-[#F08A7E]"
+                      : node.kind === "boss"
+                        ? "border-[#C93A2B] text-[#E3B94E]"
+                        : "border-[#3A332A] text-[#CFC8B8]";
+                return (
+                  <div key={node.key} className="flex shrink-0 items-center gap-1">
+                    <div
+                      title={node.title}
+                      className={`inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[10px] transition-all ${
+                        isCurrent
+                          ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#F4D06F]"
+                          : isDone
+                            ? "border-[#2A241E] bg-[#0B0A0E] text-[#6B6458] line-through"
+                            : `bg-[#141118] ${baseChip}`
+                      }`}
+                    >
+                      {node.kind === "boss" && <Skull className="h-2.5 w-2.5" />}
+                      {node.kind === "library" && (
+                        <BookMarked className="h-2.5 w-2.5" />
+                      )}
+                      <span>{node.label}</span>
+                    </div>
+                    {idx < arr.length - 1 && (
+                      <ChevronRight className="h-3 w-3 shrink-0 text-[#4A4338]" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* PC Progression Stepper & Transition Banner */}
+        <div className="hidden border border-[#2E2822] bg-[#100E14] px-2.5 py-2 space-y-2 lg:block">
           <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
             {buildDungeonRouteNodes(run).map((node, idx, arr) => {
               const isCurrent = node.status === "current";
@@ -672,392 +743,559 @@ export default function DungeonPage() {
         {/* === BATTLE PHASE === */}
         {run.phase === "battle" && (
           <>
-            {/* Enemy Stage */}
-            <div className="kaku-frame stage-grid flex flex-col items-center p-4">
-              {/* Enemy Next Intent */}
-              <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
-                <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
-                <span>次ターン予告：{intent.label}</span>
-              </div>
+            <div className="space-y-1.5 lg:space-y-3">
+              {/* Mobile Compact Enemy Stage (Fits 1 screen without vertical scroll) */}
+              <div className="kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="inline-flex items-center gap-1.5 border border-[#5C3530] bg-[#241212] px-2 py-0.5 font-mono text-[11px] text-[#E05A47]">
+                    <AlertOctagon className="h-3 w-3 shrink-0" />
+                    <span>次：{intent.label}</span>
+                  </div>
+                  <span
+                    style={{ color: ATTR_META[run.enemy.attribute].color }}
+                    className="font-mono text-[10px]"
+                  >
+                    [{ATTR_META[run.enemy.attribute].label}] {run.enemy.title}
+                  </span>
+                </div>
 
-              {/* Pixel Sprite */}
-              <motion.div
-                key={`${run.enemy.id}_${run.enemyHp}`}
-                animate={
-                  lastFmt && lastFmt.shakeLevel >= 2
-                    ? { x: [0, -6, 6, -4, 4, 0] }
-                    : { y: [0, -3, 0] }
-                }
-                transition={{ duration: 0.35 }}
-                className="my-2"
-              >
-                <PixelMonster
-                  spriteId={run.enemy.spriteId}
-                  attribute={run.enemy.attribute}
-                  size={104}
-                  isBoss={run.enemy.isBoss}
-                />
-              </motion.div>
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    key={`mob_${run.enemy.id}_${run.enemyHp}`}
+                    animate={
+                      lastFmt && lastFmt.shakeLevel >= 2
+                        ? { x: [0, -5, 5, -3, 3, 0] }
+                        : { y: [0, -2, 0] }
+                    }
+                    transition={{ duration: 0.35 }}
+                    className="shrink-0"
+                  >
+                    <PixelMonster
+                      spriteId={run.enemy.spriteId}
+                      attribute={run.enemy.attribute}
+                      size={60}
+                      isBoss={run.enemy.isBoss}
+                    />
+                  </motion.div>
 
-              <div className="text-center">
-                <span
-                  style={{ color: ATTR_META[run.enemy.attribute].color }}
-                  className="font-mono text-[10px]"
-                >
-                  [{ATTR_META[run.enemy.attribute].label}] {run.enemy.title}
-                </span>
-                <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
-                  {run.enemy.name}
-                </h2>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h2 className="truncate font-serif text-base font-extrabold text-[#F2ECE0]">
+                      {run.enemy.name}
+                    </h2>
+                    <div className="flex items-center justify-between font-mono text-[11px]">
+                      <span className="text-[#E05A47]">
+                        HP {formatJapaneseNumber(run.enemyHp).text} /{" "}
+                        {formatJapaneseNumber(run.enemy.maxHp).text}
+                      </span>
+                      {run.enemyShield > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[#5B9BD5]">
+                          <Shield className="h-3 w-3" />
+                          {formatJapaneseNumber(run.enemyShield).text}
+                        </span>
+                      )}
+                    </div>
+                    <div className="h-2 w-full border border-[#3A332A] bg-[#0B0A0E]">
+                      <div
+                        style={{ width: `${enemyHpPct}%` }}
+                        className="h-full bg-[#C93A2B] transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {run.enemy.gimmickDesc && (
-                  <div className="mt-1.5 border border-[#8A7348]/60 bg-[#1B1610] px-2.5 py-1 font-mono text-[10px] leading-snug text-[#E3B94E]">
+                  <div className="border border-[#8A7348]/50 bg-[#1B1610] px-2 py-0.5 font-mono text-[10px] leading-snug text-[#E3B94E]">
                     特性：{run.enemy.gimmickDesc}
                   </div>
                 )}
+
+                {/* Fixed-height output line on mobile so layout never jumps on attack/guard */}
+                <div className="flex h-[28px] items-center justify-center border border-[#2E2822] bg-[#0B0A0E]/90 px-2">
+                  <AnimatePresence mode="wait">
+                    {run.lastOutput && lastFmt ? (
+                      <motion.div
+                        key={`mob_out_${run.cardsPlayedThisTurn}_${run.lastOutput.cardTerm}`}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex w-full items-center justify-between gap-2 font-mono text-[11px]"
+                      >
+                        <span className="truncate text-[#968E7E]">
+                          {run.lastOutput.cardTerm}（
+                          {run.lastOutput.role === "attack"
+                            ? "攻"
+                            : run.lastOutput.role === "guard"
+                              ? "防"
+                              : "技"}
+                          {run.lastOutput.retriggers > 1
+                            ? `×${run.lastOutput.retriggers}連`
+                            : ""}
+                          ）
+                        </span>
+                        <span className={`shrink-0 font-pixel text-sm font-bold ${lastFmt.colorClass}`}>
+                          {run.lastOutput.role === "guard" || run.lastOutput.didShield
+                            ? `盾 +${lastFmt.text}`
+                            : run.lastOutput.role === "attack" || run.lastOutput.didDamage
+                              ? `${lastFmt.text} DMG`
+                              : `倍率 ×${formatJapaneseNumber(run.battleMult).text}`}
+                        </span>
+                      </motion.div>
+                    ) : (
+                      <span className="font-mono text-[10px] text-[#6B6458]">
+                        手札の語彙を選択して行動してください
+                      </span>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
-              {/* Enemy HP & Shield */}
-              <div className="mt-2 w-full max-w-xs space-y-1">
-                <div className="flex items-center justify-between font-mono text-xs">
-                  <span className="text-[#E05A47]">
-                    HP {formatJapaneseNumber(run.enemyHp).text} /{" "}
-                    {formatJapaneseNumber(run.enemy.maxHp).text}
+              {/* PC Enemy Stage (Unchanged desktop layout) */}
+              <div className="kaku-frame stage-grid hidden flex-col items-center p-4 lg:flex">
+                {/* Enemy Next Intent */}
+                <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
+                  <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
+                  <span>次ターン予告：{intent.label}</span>
+                </div>
+
+                {/* Pixel Sprite */}
+                <motion.div
+                  key={`${run.enemy.id}_${run.enemyHp}`}
+                  animate={
+                    lastFmt && lastFmt.shakeLevel >= 2
+                      ? { x: [0, -6, 6, -4, 4, 0] }
+                      : { y: [0, -3, 0] }
+                  }
+                  transition={{ duration: 0.35 }}
+                  className="my-2"
+                >
+                  <PixelMonster
+                    spriteId={run.enemy.spriteId}
+                    attribute={run.enemy.attribute}
+                    size={104}
+                    isBoss={run.enemy.isBoss}
+                  />
+                </motion.div>
+
+                <div className="text-center">
+                  <span
+                    style={{ color: ATTR_META[run.enemy.attribute].color }}
+                    className="font-mono text-[10px]"
+                  >
+                    [{ATTR_META[run.enemy.attribute].label}] {run.enemy.title}
                   </span>
-                  {run.enemyShield > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[#5B9BD5]">
-                      <Shield className="h-3 w-3" />
-                      {formatJapaneseNumber(run.enemyShield).text}
+                  <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
+                    {run.enemy.name}
+                  </h2>
+                  {run.enemy.gimmickDesc && (
+                    <div className="mt-1.5 border border-[#8A7348]/60 bg-[#1B1610] px-2.5 py-1 font-mono text-[10px] leading-snug text-[#E3B94E]">
+                      特性：{run.enemy.gimmickDesc}
+                    </div>
+                  )}
+                </div>
+
+                {/* Enemy HP & Shield */}
+                <div className="mt-2 w-full max-w-xs space-y-1">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-[#E05A47]">
+                      HP {formatJapaneseNumber(run.enemyHp).text} /{" "}
+                      {formatJapaneseNumber(run.enemy.maxHp).text}
+                    </span>
+                    {run.enemyShield > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[#5B9BD5]">
+                        <Shield className="h-3 w-3" />
+                        {formatJapaneseNumber(run.enemyShield).text}
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-2.5 w-full border border-[#3A332A] bg-[#0B0A0E]">
+                    <div
+                      style={{ width: `${enemyHpPct}%` }}
+                      className="h-full bg-[#C93A2B] transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Big-Number Output Calculation Pop */}
+                <AnimatePresence mode="wait">
+                  {run.lastOutput && lastFmt && (
+                    <motion.div
+                      key={`${run.cardsPlayedThisTurn}_${run.lastOutput.cardTerm}`}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-3 w-full border border-[#3A332A] bg-[#0B0A0E]/90 px-3 py-2 text-center"
+                    >
+                      <div className="font-mono text-[10px] text-[#968E7E]">
+                        {run.lastOutput.cardTerm}（
+                        {run.lastOutput.role === "attack"
+                          ? "こうげき"
+                          : run.lastOutput.role === "guard"
+                            ? "ぼうぎょ"
+                            : "スキル"}
+                        ）： 基礎{run.lastOutput.baseOutput} × 倍率
+                        {formatJapaneseNumber(run.lastOutput.multiplier).text}
+                        {run.lastOutput.exponent > 1
+                          ? ` ^${run.lastOutput.exponent}`
+                          : ""}
+                        {run.lastOutput.retriggers > 1
+                          ? ` ／ ${run.lastOutput.retriggers}連発動`
+                          : ""}
+                      </div>
+                      <div
+                        className={`font-pixel text-2xl font-bold tracking-wider ${lastFmt.colorClass}`}
+                      >
+                        {run.lastOutput.role === "guard" || run.lastOutput.didShield
+                          ? `盾 +${lastFmt.text}`
+                          : run.lastOutput.role === "attack" || run.lastOutput.didDamage
+                            ? `${lastFmt.text} DMG`
+                            : `倍率 ×${formatJapaneseNumber(run.battleMult).text}`}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Player Status Strip */}
+              <div className="grid grid-cols-3 gap-2 border border-[#2E2822] bg-[#121016] p-2 font-mono text-xs lg:p-2.5">
+                <div>
+                  <span className="flex items-center gap-1 text-[10px] text-[#968E7E]">
+                    <Heart className="h-3 w-3 text-[#C93A2B]" />
+                    体力
+                  </span>
+                  <span className="font-bold text-[#ECE6D8]">
+                    {run.playerHp} / {run.playerMaxHp}
+                  </span>
+                  <div className="mt-1 h-1.5 w-full bg-[#0B0A0E]">
+                    <div
+                      style={{ width: `${playerHpPct}%` }}
+                      className="h-full bg-[#2F7D5B]"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-[#968E7E]">
+                    <Shield className="h-3 w-3 text-[#5B9BD5]" />
+                    シールド
+                  </span>
+                  <div className="text-sm font-bold text-[#5B9BD5] lg:text-base">
+                    {formatJapaneseNumber(run.playerShield).text}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-[#968E7E]">
+                    <Zap className="h-3 w-3 text-[#E3B94E]" />
+                    コスト
+                  </span>
+                  <div className="text-sm font-bold text-[#E3B94E] lg:text-base">
+                    {run.energy} / {run.maxEnergy}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile Live Multiplier Summary Strip */}
+              <button
+                type="button"
+                onClick={() => setHudModalOpen(true)}
+                className="flex w-full items-center justify-between gap-2 border border-[#2A241E] bg-[#100E14] px-2.5 py-1 text-left font-mono text-[10px] lg:hidden"
+              >
+                <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap">
+                  <span className="text-[#968E7E]">
+                    乗算 <strong className="text-[#E3B94E]">×{formatJapaneseNumber(run.battleMult).text}</strong>
+                  </span>
+                  <span className="text-[#968E7E]">
+                    次札 <strong className="text-[#57B889]">×{run.nextCardMult.toFixed(2)}</strong>
+                  </span>
+                  <span className="text-[#968E7E]">
+                    指数 <strong className="text-[#E05A47]">^{run.battleExponent}</strong>
+                  </span>
+                  <span className="text-[#968E7E]">
+                    永続 <strong className="text-[#9BD1B5]">+{formatJapaneseNumber(run.permanentFlatAdd).text}</strong>
+                  </span>
+                </div>
+                <span className="shrink-0 text-[10px] text-[#8A7348]">詳細 ›</span>
+              </button>
+
+              {(run.cardsPlayedThisTurn >= 1 ||
+                run.highRankCostDiscountThisTurn > 0 ||
+                run.allCardCostDiscountThisTurn > 0 ||
+                run.nextCardRetrigger > 0 ||
+                run.nextAttackMult > 1 ||
+                run.nextAttackFlatAdd > 0 ||
+                run.nextFInverted ||
+                run.pendingSelfHarmPctAfterAttack > 0 ||
+                run.selfHarmCountInBattle > 0) && (
+                <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 font-mono text-[10px] lg:flex-wrap lg:overflow-visible lg:whitespace-normal">
+                  {run.cardsPlayedThisTurn >= 1 && (
+                    <span className="shrink-0 border border-[#2E2822] bg-[#121016] px-2 py-0.5 text-[#CFC8B8]">
+                      このターン発動：{run.cardsPlayedThisTurn}枚目
+                      {run.cardsPlayedThisTurn >= 2
+                        ? `（連鎖補正 ×${(1 + (run.cardsPlayedThisTurn - 1) * 0.2).toFixed(1)}）`
+                        : ""}
+                    </span>
+                  )}
+                  {run.nextCardRetrigger > 0 && (
+                    <span className="shrink-0 border border-[#D4AF37] bg-[#261E0E] px-2 py-0.5 font-bold text-[#F4D06F]">
+                      次カード 計{Math.min(12, run.nextCardRetrigger + 1)}回発動
+                    </span>
+                  )}
+                  {run.nextAttackMult > 1 && (
+                    <span className="shrink-0 border border-[#C93A2B] bg-[#261314] px-2 py-0.5 font-bold text-[#F08A7E]">
+                      次攻撃 ×{formatJapaneseNumber(run.nextAttackMult).text}
+                    </span>
+                  )}
+                  {run.nextAttackFlatAdd > 0 && (
+                    <span className="shrink-0 border border-[#D96B43] bg-[#261710] px-2 py-0.5 text-[#F4A261]">
+                      次攻撃基礎 +{run.nextAttackFlatAdd}
+                    </span>
+                  )}
+                  {run.nextFInverted && (
+                    <span className="shrink-0 border border-[#C8A464] bg-[#261E0E] px-2 py-0.5 text-[#F4D06F]">
+                      次の『不』反転×{run.nextFInvertMult}
+                    </span>
+                  )}
+                  {run.pendingSelfHarmPctAfterAttack > 0 && (
+                    <span className="shrink-0 border border-[#D44D4D] bg-[#261014] px-2 py-0.5 text-[#F08A7E]">
+                      攻撃後HP-{run.pendingSelfHarmPctAfterAttack}%
+                    </span>
+                  )}
+                  {run.selfHarmCountInBattle > 0 && (
+                    <span className="shrink-0 border border-[#5C3530] bg-[#180E10] px-2 py-0.5 text-[#C9A098]">
+                      自傷 {run.selfHarmCountInBattle}回 / 累計-{run.selfHarmHpTotalInBattle}HP
+                    </span>
+                  )}
+                  {run.allCardCostDiscountThisTurn > 0 && (
+                    <span className="shrink-0 border border-[#9B7EDE] bg-[#1E172E] px-2 py-0.5 text-[#C5B3F2]">
+                      今ターン全札コスト -{run.allCardCostDiscountThisTurn}
+                    </span>
+                  )}
+                  {run.highRankCostDiscountThisTurn > 0 && (
+                    <span className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-2 py-0.5 text-[#E3B94E]">
+                      次の秀/極/異コスト -{run.highRankCostDiscountThisTurn}
                     </span>
                   )}
                 </div>
-                <div className="h-2.5 w-full border border-[#3A332A] bg-[#0B0A0E]">
-                  <div
-                    style={{ width: `${enemyHpPct}%` }}
-                    className="h-full bg-[#C93A2B] transition-all duration-200"
-                  />
-                </div>
-              </div>
-
-              {/* Big-Number Output Calculation Pop */}
-              <AnimatePresence mode="wait">
-                {run.lastOutput && lastFmt && (
-                  <motion.div
-                    key={`${run.cardsPlayedThisTurn}_${run.lastOutput.cardTerm}`}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="mt-3 w-full border border-[#3A332A] bg-[#0B0A0E]/90 px-3 py-2 text-center"
-                  >
-                    <div className="font-mono text-[10px] text-[#968E7E]">
-                      {run.lastOutput.cardTerm}（
-                      {run.lastOutput.role === "attack"
-                        ? "こうげき"
-                        : run.lastOutput.role === "guard"
-                          ? "ぼうぎょ"
-                          : "スキル"}
-                      ）： 基礎{run.lastOutput.baseOutput} × 倍率
-                      {formatJapaneseNumber(run.lastOutput.multiplier).text}
-                      {run.lastOutput.exponent > 1
-                        ? ` ^${run.lastOutput.exponent}`
-                        : ""}
-                      {run.lastOutput.retriggers > 1
-                        ? ` ／ ${run.lastOutput.retriggers}連発動`
-                        : ""}
-                    </div>
-                    <div
-                      className={`font-pixel text-2xl font-bold tracking-wider ${lastFmt.colorClass}`}
-                    >
-                      {run.lastOutput.role === "guard" || run.lastOutput.didShield
-                        ? `盾 +${lastFmt.text}`
-                        : run.lastOutput.role === "attack" || run.lastOutput.didDamage
-                          ? `${lastFmt.text} DMG`
-                          : `倍率 ×${formatJapaneseNumber(run.battleMult).text}`}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              )}
             </div>
 
-            {/* Player Status Strip */}
-            <div className="grid grid-cols-3 gap-2 border border-[#2E2822] bg-[#121016] p-2.5 font-mono text-xs">
-              <div>
-                <span className="flex items-center gap-1 text-[10px] text-[#968E7E]">
-                  <Heart className="h-3 w-3 text-[#C93A2B]" />
-                  体力
-                </span>
-                <span className="font-bold text-[#ECE6D8]">
-                  {run.playerHp} / {run.playerMaxHp}
-                </span>
-                <div className="mt-1 h-1.5 w-full bg-[#0B0A0E]">
-                  <div
-                    style={{ width: `${playerHpPct}%` }}
-                    className="h-full bg-[#2F7D5B]"
-                  />
-                </div>
-              </div>
-
-              <div className="text-center">
-                <span className="inline-flex items-center gap-1 text-[10px] text-[#968E7E]">
-                  <Shield className="h-3 w-3 text-[#5B9BD5]" />
-                  シールド
-                </span>
-                <div className="text-base font-bold text-[#5B9BD5]">
-                  {formatJapaneseNumber(run.playerShield).text}
-                </div>
-              </div>
-
-              <div className="text-right">
-                <span className="inline-flex items-center gap-1 text-[10px] text-[#968E7E]">
-                  <Zap className="h-3 w-3 text-[#E3B94E]" />
-                  コスト
-                </span>
-                <div className="text-base font-bold text-[#E3B94E]">
-                  {run.energy} / {run.maxEnergy}
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Live Multiplier Summary Strip */}
-            <button
-              type="button"
-              onClick={() => setHudModalOpen(true)}
-              className="flex w-full flex-wrap items-center justify-between gap-2 border border-[#2A241E] bg-[#100E14] px-2.5 py-1.5 text-left font-mono text-[11px] lg:hidden"
-            >
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-[#968E7E]">
-                  乗算 <strong className="text-[#E3B94E]">×{formatJapaneseNumber(run.battleMult).text}</strong>
-                </span>
-                <span className="text-[#968E7E]">
-                  次札 <strong className="text-[#57B889]">×{run.nextCardMult.toFixed(2)}</strong>
-                </span>
-                <span className="text-[#968E7E]">
-                  指数 <strong className="text-[#E05A47]">^{run.battleExponent}</strong>
-                </span>
-              </div>
-              <span className="text-[10px] text-[#8A7348]">戦況・履歴 ›</span>
-            </button>
-
-            {(run.cardsPlayedThisTurn >= 1 ||
-              run.highRankCostDiscountThisTurn > 0 ||
-              run.allCardCostDiscountThisTurn > 0 ||
-              run.nextCardRetrigger > 0 ||
-              run.nextAttackMult > 1 ||
-              run.nextAttackFlatAdd > 0 ||
-              run.nextFInverted ||
-              run.pendingSelfHarmPctAfterAttack > 0 ||
-              run.selfHarmCountInBattle > 0) && (
-              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
-                {run.cardsPlayedThisTurn >= 1 && (
-                  <span className="border border-[#2E2822] bg-[#121016] px-2 py-0.5 text-[#CFC8B8]">
-                    このターン発動：{run.cardsPlayedThisTurn}枚目
-                    {run.cardsPlayedThisTurn >= 2
-                      ? `（連鎖補正 ×${(1 + (run.cardsPlayedThisTurn - 1) * 0.2).toFixed(1)}）`
-                      : ""}
-                  </span>
-                )}
-                {run.nextCardRetrigger > 0 && (
-                  <span className="border border-[#D4AF37] bg-[#261E0E] px-2 py-0.5 font-bold text-[#F4D06F]">
-                    次カード 計{Math.min(12, run.nextCardRetrigger + 1)}回発動
-                  </span>
-                )}
-                {run.nextAttackMult > 1 && (
-                  <span className="border border-[#C93A2B] bg-[#261314] px-2 py-0.5 font-bold text-[#F08A7E]">
-                    次攻撃 ×{formatJapaneseNumber(run.nextAttackMult).text}
-                  </span>
-                )}
-                {run.nextAttackFlatAdd > 0 && (
-                  <span className="border border-[#D96B43] bg-[#261710] px-2 py-0.5 text-[#F4A261]">
-                    次攻撃基礎 +{run.nextAttackFlatAdd}
-                  </span>
-                )}
-                {run.nextFInverted && (
-                  <span className="border border-[#C8A464] bg-[#261E0E] px-2 py-0.5 text-[#F4D06F]">
-                    次の『不』反転×{run.nextFInvertMult}
-                  </span>
-                )}
-                {run.pendingSelfHarmPctAfterAttack > 0 && (
-                  <span className="border border-[#D44D4D] bg-[#261014] px-2 py-0.5 text-[#F08A7E]">
-                    攻撃後HP-{run.pendingSelfHarmPctAfterAttack}%
-                  </span>
-                )}
-                {run.selfHarmCountInBattle > 0 && (
-                  <span className="border border-[#5C3530] bg-[#180E10] px-2 py-0.5 text-[#C9A098]">
-                    自傷 {run.selfHarmCountInBattle}回 / 累計-{run.selfHarmHpTotalInBattle}HP
-                  </span>
-                )}
-                {run.allCardCostDiscountThisTurn > 0 && (
-                  <span className="border border-[#9B7EDE] bg-[#1E172E] px-2 py-0.5 text-[#C5B3F2]">
-                    今ターン全札コスト -{run.allCardCostDiscountThisTurn}
-                  </span>
-                )}
-                {run.highRankCostDiscountThisTurn > 0 && (
-                  <span className="border border-[#8A7348] bg-[#261E0E] px-2 py-0.5 text-[#E3B94E]">
-                    次の秀/極/異コスト -{run.highRankCostDiscountThisTurn}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* 3 Command Buttons (Active when a hand card is tapped) */}
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  {
-                    role: "attack" as CommandRole,
-                    label: "こうげき",
-                    icon: Sword,
-                    accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
-                  },
-                  {
-                    role: "skill" as CommandRole,
-                    label: "スキル",
-                    icon: Sparkles,
-                    accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
-                  },
-                  {
-                    role: "guard" as CommandRole,
-                    label: "ぼうぎょ",
-                    icon: Shield,
-                    accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
-                  },
-                ] as const
-              ).map((cmd) => {
-                const Icon = cmd.icon;
-                const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
-                const guardLocked =
-                  cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
-                const affordable =
-                  !guardLocked &&
-                  Boolean(selectedCard) &&
-                  (run.energy >= cost || hasOverclock);
-                const bonusTag =
-                  selectedCard && cmd.role === "attack"
-                    ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
-                      ? "×1.25"
-                      : selectedCard.attribute === "logic" &&
-                          (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
-                        ? "貫通"
-                        : null
-                    : selectedCard &&
-                        cmd.role === "guard" &&
-                        (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
-                      ? "×1.25"
-                      : null;
-                return (
-                  <button
-                    key={cmd.role}
-                    type="button"
-                    disabled={!affordable}
-                    onClick={() => handlePlayCommand(cmd.role)}
-                    className={`flex items-center justify-center gap-1.5 border py-2.5 font-serif text-xs font-extrabold tracking-wider transition-colors sm:text-sm ${
-                      affordable
-                        ? cmd.accent
-                        : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
-                    {bonusTag && affordable && (
-                      <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[10px]">
-                        {bonusTag}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Selected card quick mobile skill hint */}
-            {selectedCard && (() => {
-              const selStats = getEffectiveStats(selectedCard, selectedCard.plusLevel);
-              const selAttr = ATTR_META[selectedCard.attribute];
-              const selCost = getEffectiveCardCost(run, selectedCard);
-              return (
-                <div className="space-y-1 border border-[#3A332A] bg-[#17141D] px-3 py-2 text-[11px] text-[#DCD4C2] lg:hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-[#2A241E] pb-1 font-mono text-[10px]">
-                    <div className="flex items-center gap-1.5">
-                      <strong className="font-serif text-xs text-[#E3B94E]">
-                        {selectedCard.term}
-                      </strong>
-                      {selectedCard.plusLevel > 0 && (
-                        <span className="text-[#E3B94E]">+{selectedCard.plusLevel}</span>
-                      )}
-                      <span style={{ color: selAttr.color }}>[{selAttr.label}]</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#ECE6D8]">{selCost}コス</span>
-                      <span className="text-[#F07167]">攻{selStats.atk}</span>
-                      <span className="text-[#69A3D9]">防{selStats.def}</span>
-                    </div>
-                  </div>
-                  <div>{selectedCard.skillDesc}</div>
-                  {(() => {
-                    const preview = getDynamicSkillPreview(run, selectedCard);
-                    return preview ? (
-                      <div className="font-mono text-[10px] text-[#F4D06F]">
-                        {preview}
+            {/* Bottom Controls Group (Pinned comfortably at bottom on mobile, normal flow on PC) */}
+            <div className="space-y-1.5 max-lg:mt-auto lg:space-y-3">
+              {/* Mobile Fixed-Height Card Detail Slot (Above commands so buttons & hand never jump vertically) */}
+              <div className="flex h-[58px] flex-col justify-center overflow-hidden border border-[#3A332A] bg-[#17141D] px-2.5 py-1.5 text-[11px] text-[#DCD4C2] lg:hidden">
+                {selectedCard ? (() => {
+                  const selStats = getEffectiveStats(selectedCard, selectedCard.plusLevel);
+                  const selAttr = ATTR_META[selectedCard.attribute];
+                  const selCost = getEffectiveCardCost(run, selectedCard);
+                  const preview = getDynamicSkillPreview(run, selectedCard);
+                  return (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between gap-1.5 font-mono text-[10px]">
+                        <div className="flex min-w-0 items-center gap-1">
+                          <strong className="truncate font-serif text-xs text-[#E3B94E]">
+                            {selectedCard.term}
+                          </strong>
+                          {selectedCard.plusLevel > 0 && (
+                            <span className="shrink-0 text-[#E3B94E]">
+                              +{selectedCard.plusLevel}
+                            </span>
+                          )}
+                          <span style={{ color: selAttr.color }} className="shrink-0">
+                            [{selAttr.label}]
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-[#ECE6D8]">{selCost}コス</span>
+                          <span className="text-[#F07167]">攻{selStats.atk}</span>
+                          <span className="text-[#69A3D9]">防{selStats.def}</span>
+                        </div>
                       </div>
-                    ) : null;
-                  })()}
+                      <p className="line-clamp-2 text-[10px] leading-snug text-[#CFC8B8]">
+                        {preview ?? selectedCard.skillDesc}
+                      </p>
+                    </div>
+                  );
+                })() : (
+                  <p className="text-center font-mono text-[10px] text-[#787166]">
+                    下のカードをタップ →「こうげき / スキル / ぼうぎょ」で発動
+                  </p>
+                )}
+              </div>
+
+              {/* 3 Command Buttons */}
+              <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
+                {(
+                  [
+                    {
+                      role: "attack" as CommandRole,
+                      label: "こうげき",
+                      icon: Sword,
+                      accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
+                    },
+                    {
+                      role: "skill" as CommandRole,
+                      label: "スキル",
+                      icon: Sparkles,
+                      accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
+                    },
+                    {
+                      role: "guard" as CommandRole,
+                      label: "ぼうぎょ",
+                      icon: Shield,
+                      accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
+                    },
+                  ] as const
+                ).map((cmd) => {
+                  const Icon = cmd.icon;
+                  const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
+                  const guardLocked =
+                    cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
+                  const affordable =
+                    !guardLocked &&
+                    Boolean(selectedCard) &&
+                    (run.energy >= cost || hasOverclock);
+                  const bonusTag =
+                    selectedCard && cmd.role === "attack"
+                      ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
+                        ? "×1.25"
+                        : selectedCard.attribute === "logic" &&
+                            (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
+                          ? "貫通"
+                          : null
+                      : selectedCard &&
+                          cmd.role === "guard" &&
+                          (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
+                        ? "×1.25"
+                        : null;
+                  return (
+                    <button
+                      key={cmd.role}
+                      type="button"
+                      disabled={!affordable}
+                      onClick={() => handlePlayCommand(cmd.role)}
+                      className={`flex items-center justify-center gap-1 border py-2 font-serif text-xs font-extrabold tracking-wider transition-colors lg:gap-1.5 lg:py-2.5 lg:text-sm ${
+                        affordable
+                          ? cmd.accent
+                          : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
+                      {bonusTag && affordable && (
+                        <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[9px] lg:text-[10px]">
+                          {bonusTag}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile Hand Cards: Slay-the-Spire style single-row animated rail (No vertical expansion!) */}
+              <div className="overflow-x-auto lg:hidden">
+                <div className="mx-auto flex w-max min-w-full items-end justify-center px-3 pt-5 pb-2">
+                  {run.hand.map((card, idx) => {
+                    const cost = getEffectiveCardCost(run, card);
+                    const canAfford = run.energy >= cost || hasOverclock;
+                    const isSelected = selectedCardId === card.instanceId;
+                    const overlapClass =
+                      idx === 0
+                        ? ""
+                        : run.hand.length >= 6
+                          ? "-ml-3"
+                          : run.hand.length >= 4
+                            ? "-ml-1.5"
+                            : "ml-1.5";
+                    return (
+                      <motion.div
+                        key={card.instanceId}
+                        layout
+                        animate={
+                          isSelected
+                            ? { y: -14, scale: 1.07 }
+                            : { y: 0, scale: 1 }
+                        }
+                        transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                        style={{ zIndex: isSelected ? 20 : idx + 1 }}
+                        className={`relative shrink-0 ${overlapClass}`}
+                      >
+                        <WordCard
+                          word={card}
+                          effectiveCost={cost}
+                          plusLevel={card.plusLevel}
+                          selected={isSelected}
+                          disabled={!canAfford}
+                          isTemporaryTrial={card.isTemporaryTrial}
+                          compact
+                          disableLift
+                          className="w-[92px] min-h-[104px]"
+                          onClick={() =>
+                            setSelectedCardId((prev) =>
+                              prev === card.instanceId ? null : card.instanceId
+                            )
+                          }
+                        />
+                      </motion.div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
+              </div>
 
-            {/* Hand Cards */}
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 sm:gap-2">
-              {run.hand.map((card) => {
-                const cost = getEffectiveCardCost(run, card);
-                const canAfford = run.energy >= cost || hasOverclock;
-                return (
-                  <WordCard
-                    key={card.instanceId}
-                    word={card}
-                    effectiveCost={cost}
-                    plusLevel={card.plusLevel}
-                    selected={selectedCardId === card.instanceId}
-                    disabled={!canAfford}
-                    isTemporaryTrial={card.isTemporaryTrial}
-                    compact
-                    onClick={() =>
-                      setSelectedCardId((prev) =>
-                        prev === card.instanceId ? null : card.instanceId
-                      )
-                    }
-                  />
-                );
-              })}
-            </div>
+              {/* PC Hand Cards (Original 5-column desktop grid preserved) */}
+              <div className="hidden gap-2 lg:grid lg:grid-cols-5">
+                {run.hand.map((card) => {
+                  const cost = getEffectiveCardCost(run, card);
+                  const canAfford = run.energy >= cost || hasOverclock;
+                  return (
+                    <WordCard
+                      key={card.instanceId}
+                      word={card}
+                      effectiveCost={cost}
+                      plusLevel={card.plusLevel}
+                      selected={selectedCardId === card.instanceId}
+                      disabled={!canAfford}
+                      isTemporaryTrial={card.isTemporaryTrial}
+                      compact
+                      onClick={() =>
+                        setSelectedCardId((prev) =>
+                          prev === card.instanceId ? null : card.instanceId
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
 
-            {/* Deck Counts (Clickable!) & Turn End */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1.5 font-mono text-[11px]">
+              {/* Deck Counts (Clickable!) & Turn End */}
+              <div className="flex items-center justify-between pt-0.5 lg:pt-1">
+                <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeckTab("draw");
+                      setDeckModalOpen(true);
+                    }}
+                    className="border border-[#2E2822] bg-[#121016] px-2.5 py-1.5 text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E] lg:px-2 lg:py-1"
+                  >
+                    山札 {run.drawPile.length}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeckTab("discard");
+                      setDeckModalOpen(true);
+                    }}
+                    className="border border-[#2E2822] bg-[#121016] px-2.5 py-1.5 text-[#A89F8E] hover:border-[#8A7348] hover:text-[#E3B94E] lg:px-2 lg:py-1"
+                  >
+                    捨札 {run.discardPile.length + run.playedThisTurn.length}
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDeckTab("draw");
-                    setDeckModalOpen(true);
-                  }}
-                  className="border border-[#2E2822] bg-[#121016] px-2 py-1 text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E]"
+                  onClick={handleEndTurn}
+                  className="border border-[#8A7348] bg-[#1A1620] px-5 py-2 font-serif text-xs font-bold tracking-wider text-[#ECE6D8] hover:border-[#D4AF37] hover:bg-[#272130]"
                 >
-                  山札 {run.drawPile.length}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeckTab("discard");
-                    setDeckModalOpen(true);
-                  }}
-                  className="border border-[#2E2822] bg-[#121016] px-2 py-1 text-[#A89F8E] hover:border-[#8A7348] hover:text-[#E3B94E]"
-                >
-                  捨札 {run.discardPile.length + run.playedThisTurn.length}
+                  ターン終了
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={handleEndTurn}
-                className="border border-[#8A7348] bg-[#1A1620] px-5 py-2 font-serif text-xs font-bold tracking-wider text-[#ECE6D8] hover:border-[#D4AF37] hover:bg-[#272130]"
-              >
-                ターン終了
-              </button>
             </div>
           </>
         )}

@@ -21,6 +21,8 @@ interface WordCardProps {
   inDeck?: boolean;
   isAce?: boolean;
   dimUnselected?: boolean;
+  disableLift?: boolean;
+  className?: string;
   onClick?: () => void;
 }
 
@@ -36,6 +38,8 @@ export function WordCard({
   inDeck = false,
   isAce = false,
   dimUnselected = false,
+  disableLift = false,
+  className = "",
   onClick,
 }: WordCardProps) {
   const rankMeta = RANK_META[word.rank];
@@ -87,17 +91,19 @@ export function WordCard({
                   ? "inset 0 0 18px rgba(224, 90, 71, 0.16)"
                   : undefined,
       }}
-      className={`group relative flex flex-col justify-between overflow-hidden text-left transition-all duration-150 ${
+      className={`group relative flex min-w-0 flex-col justify-between overflow-hidden text-left transition-all duration-150 ${
         compact
-          ? "min-h-[126px] p-2 sm:min-h-[140px] sm:p-2.5"
+          ? "min-h-[108px] p-1.5 sm:min-h-[140px] sm:p-2.5"
           : "min-h-[200px] p-3"
       } ${
         dimUnselected && !inDeck && !isAce ? "opacity-65 hover:opacity-100" : ""
       } ${
-        selected
-          ? "-translate-y-2"
-          : "hover:-translate-y-0.5 hover:brightness-110"
-      } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+        disableLift
+          ? ""
+          : selected
+            ? "-translate-y-2"
+            : "hover:-translate-y-0.5 hover:brightness-110"
+      } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"} ${className}`}
     >
       {/* Subtle diagonal metallic sheen for 極 (SSR) / 異 (UR) */}
       {isHighTier && (
@@ -196,7 +202,7 @@ export function WordCard({
       <div className="relative z-10 my-1.5 flex flex-1 flex-col justify-center">
         <div className="text-center">
           <div
-            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-keep ${
+            className={`font-serif font-extrabold tracking-tight text-[#F7F3EA] break-words leading-tight ${
               word.term.length >= 4
                 ? compact
                   ? "text-xs sm:text-sm"
