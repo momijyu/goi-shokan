@@ -188,19 +188,38 @@ function pickEnemyForFloor(
   };
 }
 
+function getEnemyBaseMaxAtk(enemy: EnemyDef): number {
+  const atkValues = enemy.pattern
+    .filter((p) => p.type === "attack" || p.type === "heavy_attack")
+    .map((p) => p.value);
+  return atkValues.length > 0 ? Math.max(...atkValues) : 20;
+}
+
 export function getEnemyCurrentIntent(state: RunState): EnemyIntent {
   const base = state.enemy.pattern[state.enemyIntentIdx % state.enemy.pattern.length];
-  if (base.type === "attack" || base.type === "heavy_attack") {
-    const raw = base.value + state.enemyAtkBonus;
+  const isEnragedOverride =
+    state.turn >= 6 &&
+    state.enemyAtkBonus > 0 &&
+    base.type !== "attack" &&
+    base.type !== "heavy_attack";
+  if (
+    base.type === "attack" ||
+    base.type === "heavy_attack" ||
+    isEnragedOverride
+  ) {
+    const baseAtk = isEnragedOverride ? getEnemyBaseMaxAtk(state.enemy) : base.value;
     const sereneMult = state.relicIds.includes("white_revelation_serene") ? 0.8 : 1;
-    const weakened = Math.max(
-      1,
-      Math.floor(raw * sereneMult * (1 - state.enemyWeakenPct / 100))
+    // Weaken reduces the enemy's base attack, while bonus ATK from enrage/buffs bypasses weaken
+    const weakenedBase = Math.floor(
+      baseAtk * sereneMult * (1 - state.enemyWeakenPct / 100)
     );
+    const totalAtk = Math.max(1, weakenedBase + state.enemyAtkBonus);
     return {
-      ...base,
-      value: weakened,
-      label: base.label.replace(/\d+/, String(weakened)),
+      type: isEnragedOverride ? "heavy_attack" : base.type,
+      value: totalAtk,
+      label: isEnragedOverride
+        ? `激昂強襲 ${totalAtk}`
+        : base.label.replace(/\d+/, String(totalAtk)),
     };
   }
   return base;
@@ -1726,14 +1745,11 @@ export function endPlayerTurn(prev: RunState): RunState {
     state.logs.unshift(`常世の静謐：HPを ${sereneHeal} 回復した。`);
   }
 
-  // Anti-stall enrage: from Turn 5 onward, enemy ATK scales exponentially relative to its base ATK so high-shield builds cannot stall indefinitely
-  if (state.turn >= 5) {
-    const baseEnemyAtk = state.enemy.pattern[0]?.value ?? 20;
-    const baseStep = Math.max(
-      state.isEndless ? 15 : 8,
-      Math.floor(baseEnemyAtk * (state.isEndless ? 0.35 : 0.25))
-    );
-    const enrageGain = Math.floor(baseStep * Math.pow(1.42, state.turn - 5));
+  // Anti-stall enrage: from Turn 4 onward, enemy ATK doubles exponentially relative to its max base ATK so stall/guard loops reach lethal by Turn 7-8
+  if (state.turn >= 4) {
+    const baseEnemyAtk = getEnemyBaseMaxAtk(state.enemy);
+    const baseStep = Math.max(22, Math.floor(baseEnemyAtk * 0.6));
+    const enrageGain = Math.floor(baseStep * Math.pow(2, state.turn - 4));
     if (enrageGain > 0) {
       state.enemyAtkBonus += enrageGain;
       state.logs.unshift(
