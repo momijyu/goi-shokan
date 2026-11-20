@@ -156,13 +156,14 @@ export default function CodexPage() {
         <TabsContent value="album" className="space-y-4">
           <AttributeGuideBar />
           <WordFilterBar value={albumFilter} onChange={setAlbumFilter} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
             {filteredAlbum.map((w) => (
               <WordCard
                 key={w.term}
                 word={w}
                 inDeck={deckPoolSet.has(w.term)}
                 isAce={save.aceTerm === w.term}
+                className="min-h-[168px] p-2 sm:min-h-[200px] sm:p-3"
                 onClick={() => setSelectedWord(w)}
               />
             ))}
@@ -176,12 +177,13 @@ export default function CodexPage() {
               まだ未知語『異』は観測されていません。新語や独自の造語を含んだ文章を採掘してみてください。
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
               {urList.map((w) => (
                 <WordCard
                   key={w.term}
                   word={w}
                   badgeText="未知語"
+                  className="min-h-[168px] p-2 sm:min-h-[200px] sm:p-3"
                   onClick={() => setSelectedWord(w)}
                 />
               ))}

@@ -120,9 +120,9 @@ export function WordFilterBar({
     onChange({ ...value, ...patch });
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border border-[#2A241E] bg-[#0B0A0E] p-2.5">
+    <div className="grid grid-cols-2 gap-2 border border-[#2A241E] bg-[#0B0A0E] p-2.5 sm:flex sm:flex-wrap sm:items-center">
       {/* Search */}
-      <div className="relative min-w-[160px] flex-1 sm:max-w-[220px]">
+      <div className="relative col-span-2 sm:min-w-[160px] sm:flex-1 sm:max-w-[220px]">
         <Search className="pointer-events-none absolute top-2.5 left-2.5 h-3.5 w-3.5 text-[#8E8678]" />
         <input
           type="text"
@@ -135,7 +135,7 @@ export function WordFilterBar({
 
       {/* Attribute Filter */}
       <Select value={value.attr} onValueChange={(v) => update({ attr: v ?? "all" })}>
-        <SelectTrigger className="h-8 w-24 rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8]">
+        <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-24">
           <SelectValue placeholder="属性" />
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
@@ -149,7 +149,7 @@ export function WordFilterBar({
 
       {/* Rank Filter */}
       <Select value={value.rank} onValueChange={(v) => update({ rank: v ?? "all" })}>
-        <SelectTrigger className="h-8 w-24 rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8]">
+        <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-24">
           <SelectValue placeholder="ランク" />
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
@@ -165,7 +165,7 @@ export function WordFilterBar({
 
       {/* Skill / Ability Filter */}
       <Select value={value.skill} onValueChange={(v) => update({ skill: v ?? "all" })}>
-        <SelectTrigger className="h-8 w-36 rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8]">
+        <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-36">
           <SelectValue placeholder="能力フィルタ" />
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
@@ -183,7 +183,7 @@ export function WordFilterBar({
         value={value.sort}
         onValueChange={(v) => update({ sort: (v ?? "atk_desc") as WordSortKey })}
       >
-        <SelectTrigger className="h-8 w-36 rounded-none border-[#8A7348] bg-[#1B1722] text-xs text-[#E3B94E]">
+        <SelectTrigger className="h-8 w-full rounded-none border-[#8A7348] bg-[#1B1722] text-xs text-[#E3B94E] sm:w-36">
           <ArrowUpDown className="mr-1 h-3 w-3 shrink-0" />
           <SelectValue placeholder="並び替え" />
         </SelectTrigger>
@@ -205,7 +205,7 @@ export function WordFilterBar({
         <button
           type="button"
           onClick={() => update({ onlyInDeck: !value.onlyInDeck })}
-          className={`h-8 border px-3 font-mono text-xs font-bold transition-colors ${
+          className={`col-span-2 h-8 w-full border px-3 font-mono text-xs font-bold transition-colors sm:w-auto ${
             value.onlyInDeck
               ? "border-[#4EB887] bg-[#173629] text-[#6EE7B7]"
               : "border-[#3A332A] bg-[#141218] text-[#A89F8E] hover:border-[#8A7348] hover:text-[#ECE6D8]"
