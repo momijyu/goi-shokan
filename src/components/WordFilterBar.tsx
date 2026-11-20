@@ -43,6 +43,34 @@ const RANK_ORDER: Record<Rank, number> = {
   F: 1,
 };
 
+const ATTR_FILTER_LABELS: Record<string, string> = {
+  all: "全属性",
+  logic: "論理",
+  emotion: "感情",
+  sense: "感覚",
+  matter: "物質",
+};
+
+const RANK_FILTER_LABELS: Record<string, string> = {
+  all: "全ランク",
+  UR: "異 (UR)",
+  SSR: "極 (SSR)",
+  SR: "秀 (SR)",
+  R: "良 (R)",
+  N: "常 (N)",
+  F: "不 (F)",
+};
+
+const SORT_LABELS: Record<WordSortKey, string> = {
+  deck_first: "辞書IN優先",
+  atk_desc: "攻撃力が高い順",
+  def_desc: "防御力が高い順",
+  rank_desc: "ランクが高い順",
+  cost_asc: "コストが低い順",
+  cost_desc: "コストが高い順",
+  plus_desc: "発見回数が多い順",
+};
+
 export function filterAndSortWords(
   words: OwnedWord[],
   filter: WordFilterState,
@@ -136,7 +164,9 @@ export function WordFilterBar({
       {/* Attribute Filter */}
       <Select value={value.attr} onValueChange={(v) => update({ attr: v ?? "all" })}>
         <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-24">
-          <SelectValue placeholder="属性" />
+          <SelectValue placeholder="属性">
+            {ATTR_FILTER_LABELS[value.attr] ?? "全属性"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
           <SelectItem value="all">全属性</SelectItem>
@@ -150,7 +180,9 @@ export function WordFilterBar({
       {/* Rank Filter */}
       <Select value={value.rank} onValueChange={(v) => update({ rank: v ?? "all" })}>
         <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-24">
-          <SelectValue placeholder="ランク" />
+          <SelectValue placeholder="ランク">
+            {RANK_FILTER_LABELS[value.rank] ?? "全ランク"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
           <SelectItem value="all">全ランク</SelectItem>
@@ -166,7 +198,11 @@ export function WordFilterBar({
       {/* Skill / Ability Filter */}
       <Select value={value.skill} onValueChange={(v) => update({ skill: v ?? "all" })}>
         <SelectTrigger className="h-8 w-full rounded-none border-[#3A332A] bg-[#141218] text-xs text-[#ECE6D8] sm:w-36">
-          <SelectValue placeholder="能力フィルタ" />
+          <SelectValue placeholder="能力フィルタ">
+            {value.skill === "all"
+              ? "全能力（スキル）"
+              : (SKILL_META[value.skill as SkillType]?.label ?? value.skill)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
           <SelectItem value="all">全能力（スキル）</SelectItem>
@@ -185,7 +221,9 @@ export function WordFilterBar({
       >
         <SelectTrigger className="h-8 w-full rounded-none border-[#8A7348] bg-[#1B1722] text-xs text-[#E3B94E] sm:w-36">
           <ArrowUpDown className="mr-1 h-3 w-3 shrink-0" />
-          <SelectValue placeholder="並び替え" />
+          <SelectValue placeholder="並び替え">
+            {SORT_LABELS[value.sort] ?? value.sort}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent className="rounded-none border-[#8A7348] bg-[#141218] text-[#ECE6D8]">
           {showDeckSort && (

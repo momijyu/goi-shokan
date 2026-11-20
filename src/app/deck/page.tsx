@@ -231,25 +231,26 @@ export default function DeckPage() {
             />
           </button>
 
-          {/* Mobile Ultra-Compact 1-Line Tag Pills (No ATK/DEF clutter; fits 20 cards in ~5 rows) */}
+          {/* Mobile Clean 2-Col Single-Line List (Aligned grid, no ATK/DEF clutter) */}
           {poolOpenMobile && (
-            <div className="flex flex-wrap gap-1.5 md:hidden">
+            <div className="grid grid-cols-2 gap-1.5 md:hidden">
               {poolWords.map((w) => {
                 const rankMeta = RANK_META[w.rank];
+                const attrMeta = ATTR_META[w.attribute];
                 const isAce = w.term === save.aceTerm;
                 return (
                   <div
                     key={w.term}
                     style={{
-                      borderColor: isAce ? "#D4AF37" : ATTR_META[w.attribute].border,
-                      backgroundColor: ATTR_META[w.attribute].tintBg,
+                      borderColor: isAce ? "#D4AF37" : "#2A241E",
+                      borderLeftColor: isAce ? "#D4AF37" : attrMeta.border,
                     }}
-                    className="inline-flex max-w-full items-center gap-1 border px-1.5 py-1 text-xs"
+                    className="flex min-w-0 items-center justify-between gap-1 border border-l-2 bg-[#0F0D14] px-2 py-1 text-xs"
                   >
                     <button
                       type="button"
                       onClick={() => setDetailWord(w)}
-                      className="flex min-w-0 items-center gap-1 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                     >
                       <span
                         style={{
@@ -261,7 +262,7 @@ export default function DeckPage() {
                       >
                         {rankMeta.kanji}
                       </span>
-                      <span className="max-w-[110px] truncate font-serif text-xs font-bold text-[#F2ECE0]">
+                      <span className="truncate font-serif text-xs font-bold text-[#F2ECE0]">
                         {w.term}
                       </span>
                       {isAce && <Crown className="h-3 w-3 shrink-0 text-[#E3B94E]" />}
@@ -271,9 +272,9 @@ export default function DeckPage() {
                         type="button"
                         onClick={() => handleTogglePool(w.term)}
                         title="マイ辞書から外す"
-                        className="shrink-0 p-0.5 text-[#8E8678] hover:text-[#E05A47]"
+                        className="shrink-0 p-0.5 text-[#787166] hover:text-[#E05A47]"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
