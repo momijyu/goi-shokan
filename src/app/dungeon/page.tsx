@@ -445,7 +445,7 @@ export default function DungeonPage() {
                 SPECIAL LABYRINTHS // 即興・変則ルール迷宮
               </p>
               <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
-                マイ辞書不要の特殊迷宮（全6階・序盤1〜2階は敵HP半減）
+                マイ辞書不要の特殊迷宮
               </h2>
             </div>
           </div>
