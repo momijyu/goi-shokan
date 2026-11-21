@@ -10,14 +10,18 @@ import {
   ChevronDown,
   ChevronRight,
   Compass,
+  FileText,
   Flame,
   Heart,
   Layers,
+  Loader2,
   RotateCcw,
   Shield,
+  Shuffle,
   Skull,
   Sparkles,
   Sword,
+  X,
   Zap,
 } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
@@ -35,8 +39,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { STAGES } from "@/data/enemies";
+import { SPECIAL_STAGES, STAGES } from "@/data/enemies";
 import { getWordMaster } from "@/data/words";
+import { analyzeTextForPack, MINING_SAMPLE_TEXTS } from "@/lib/analyzer";
 import { formatJapaneseNumber, getTodayJstDateKey } from "@/lib/bignum";
 import {
   chooseCardReward,
@@ -49,13 +54,16 @@ import {
   getRelicLabels,
   playCardFromHand,
   proceedNextBattleFloor,
+  RANDOM_STYLE_META,
   resolveCovenantEvent,
   resolveLibraryEvent,
   startNewRun,
+  type RandomDeckStyle,
   type RunState,
+  type StartRunOptions,
 } from "@/lib/battleEngine";
 import { submitRankingScore } from "@/lib/rankings";
-import { recordRunResultInSave } from "@/lib/storage";
+import { applyMiningPackToSave, recordRunResultInSave } from "@/lib/storage";
 import {
   ATTR_META,
   getEffectiveStats,
@@ -254,6 +262,10 @@ export default function DungeonPage() {
   const [routeOpenMobile, setRouteOpenMobile] = useState(false);
   const [selectedRewardCardId, setSelectedRewardCardId] = useState<string | null>(null);
   const [selectedLibraryCardId, setSelectedLibraryCardId] = useState<string | null>(null);
+  const [randomStyle, setRandomStyle] = useState<RandomDeckStyle>("chaos");
+  const [impromptuText, setImpromptuText] = useState("");
+  const [impromptuLoading, setImpromptuLoading] = useState(false);
+  const [impromptuError, setImpromptuError] = useState<string | null>(null);
 
   useEffect(() => {
     setMobileBattleFullscreen(Boolean(run));
@@ -297,10 +309,50 @@ export default function DungeonPage() {
     }
   };
 
-  const handleStartStage = (stageId: string, isDaily: boolean) => {
-    const newRun = startNewRun(save, stageId, isDaily);
+  const handleStartStage = (
+    stageId: string,
+    isDaily: boolean,
+    options?: StartRunOptions
+  ) => {
+    const newRun = startNewRun(save, stageId, isDaily, options);
     setRun(newRun);
     setSelectedCardId(null);
+    setSelectedRewardCardId(null);
+    setSelectedLibraryCardId(null);
+  };
+
+  const handleStartImpromptu = async () => {
+    if (impromptuLoading) return;
+    const trimmed = impromptuText.trim();
+    if (!trimmed) {
+      setImpromptuError("戦闘に使う文章を入力（またはサンプルを選択）してください。");
+      return;
+    }
+    setImpromptuLoading(true);
+    setImpromptuError(null);
+    try {
+      const summary = await analyzeTextForPack(trimmed, 14);
+      if (summary.packCards.length === 0) {
+        setImpromptuError(
+          "抽出できる語彙が見つかりませんでした。もう少し日本語の名詞・動詞・形容詞を含めてください。"
+        );
+        return;
+      }
+      const applied = applyMiningPackToSave(save, summary.packCards, trimmed);
+      setSave(applied.next);
+      const newRun = startNewRun(applied.next, "stage_impromptu", false, {
+        mode: "impromptu",
+        impromptuEntries: summary.packCards.map((c) => c.entry),
+      });
+      setRun(newRun);
+      setSelectedCardId(null);
+      setSelectedRewardCardId(null);
+      setSelectedLibraryCardId(null);
+    } catch {
+      setImpromptuError("形態素辞書の読み込みに失敗しました。再試行してください。");
+    } finally {
+      setImpromptuLoading(false);
+    }
   };
 
   const handlePlayCommand = (role: CommandRole) => {
@@ -382,6 +434,201 @@ export default function DungeonPage() {
             >
               日替わり迷宮へ潜る
             </button>
+          </div>
+        </section>
+
+        {/* Special Modes: Full Random & One-Text Impromptu */}
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <p className="font-mono text-[10px] tracking-[0.22em] text-[#8A7348]">
+                SPECIAL LABYRINTHS // 即興・変則ルール迷宮
+              </p>
+              <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
+                マイ辞書不要の特殊迷宮（全6階・序盤1〜2階は敵HP半減）
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Mode 1: Random Draft Labyrinth */}
+            {(() => {
+              const randomStage = SPECIAL_STAGES[0];
+              const isCleared = save.clearedStages.includes(randomStage.id);
+              const activeStyleMeta =
+                RANDOM_STYLE_META.find((s) => s.id === randomStyle) ??
+                RANDOM_STYLE_META[0];
+              return (
+                <div className="kaku-frame flex flex-col justify-between gap-3 p-4">
+                  <div className="space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#57B889]">
+                        <Shuffle className="h-3.5 w-3.5" />
+                        <span>RANDOM DRAFT // 全{randomStage.totalFloors}階</span>
+                      </span>
+                      {isCleared && (
+                        <span className="border border-[#2F7D5B] bg-[#11221B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#57B889]">
+                          踏破済
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
+                        {randomStage.name}
+                      </h3>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[#A89F8E]">
+                        {randomStage.subtitle}（未所持カードは今回限りの「お試し」で登場）
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 border-t border-[#2A241E] pt-2.5">
+                      <span className="block font-mono text-[10px] text-[#8A7348]">
+                        デッキ抽選スタイルを選択：
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {RANDOM_STYLE_META.map((st) => {
+                          const active = randomStyle === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => setRandomStyle(st.id)}
+                              className={`border px-2.5 py-1.5 text-left font-mono text-[11px] transition-colors ${
+                                active
+                                  ? "border-[#57B889] bg-[#11221B] font-bold text-[#9BD1B5]"
+                                  : "border-[#3A332A] bg-[#141218] text-[#B4ABA0] hover:border-[#8A7348]"
+                              }`}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="font-mono text-[10px] text-[#968E7E]">
+                        {activeStyleMeta.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleStartStage(randomStage.id, false, {
+                        mode: "random",
+                        randomStyle,
+                      })
+                    }
+                    className="w-full border border-[#57B889] bg-[#11221B] py-2.5 font-serif text-sm font-extrabold tracking-wider text-[#9BD1B5] transition-colors hover:bg-[#173026]"
+                  >
+                    無作為迷宮へ挑む
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Mode 2: One-Text Impromptu Labyrinth */}
+            {(() => {
+              const impromptuStage = SPECIAL_STAGES[1];
+              const isCleared = save.clearedStages.includes(impromptuStage.id);
+              return (
+                <div className="kaku-frame flex flex-col justify-between gap-3 p-4">
+                  <div className="space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#E3B94E]">
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>ONE-TEXT ARENA // 全{impromptuStage.totalFloors}階</span>
+                      </span>
+                      {isCleared && (
+                        <span className="border border-[#2F7D5B] bg-[#11221B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#57B889]">
+                          踏破済
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-lg font-extrabold text-[#F2ECE0]">
+                        {impromptuStage.name}
+                      </h3>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[#A89F8E]">
+                        入力した文章から解析された語彙だけで戦う限定戦。解析語は所持・図鑑へ登録され、道中報酬には同文内の語彙（お試し／強化版）のみ出現します。
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap gap-1">
+                        {MINING_SAMPLE_TEXTS.map((s) => {
+                          const selected = impromptuText === s.text;
+                          return (
+                            <button
+                              key={s.label}
+                              type="button"
+                              onClick={() => {
+                                setImpromptuText(selected ? "" : s.text);
+                                setImpromptuError(null);
+                              }}
+                              className={`border px-2 py-1 text-[10px] transition-colors ${
+                                selected
+                                  ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
+                                  : "border-[#3A332A] bg-[#18151E] text-[#CFC8B8] hover:border-[#8A7348]"
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <textarea
+                        value={impromptuText}
+                        onChange={(e) => {
+                          setImpromptuText(e.target.value);
+                          if (impromptuError) setImpromptuError(null);
+                        }}
+                        maxLength={2500}
+                        rows={3}
+                        placeholder="戦闘に使う1つの文章を入力してください（最大2,500文字）..."
+                        className="w-full resize-y border border-[#322C26] bg-[#0B0A0E] p-2.5 text-xs leading-relaxed text-[#F2ECE0] placeholder:text-[#787166] focus:border-[#D4AF37] focus:outline-none"
+                      />
+                      <div className="flex items-center justify-between font-mono text-[10px] text-[#968E7E]">
+                        <span>文字数: {impromptuText.length} / 2,500</span>
+                        {impromptuText.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImpromptuText("");
+                              setImpromptuError(null);
+                            }}
+                            className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#18151E] px-1.5 py-0.5 text-[10px] text-[#CFC8B8] hover:border-[#C93A2B] hover:text-[#E05A47]"
+                          >
+                            <X className="h-3 w-3" />
+                            <span>消去</span>
+                          </button>
+                        )}
+                      </div>
+                      {impromptuError && (
+                        <p className="border border-[#5C3530] bg-[#241212] px-2.5 py-1.5 text-[11px] text-[#F08A7E]">
+                          {impromptuError}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={impromptuLoading}
+                    onClick={handleStartImpromptu}
+                    className="inline-flex w-full items-center justify-center gap-2 border border-[#D4AF37] bg-[#261E0E] py-2.5 font-serif text-sm font-extrabold tracking-wider text-[#E3B94E] transition-colors hover:bg-[#3A2E14] disabled:opacity-50"
+                  >
+                    {impromptuLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>文章解析・デッキ構築中...</span>
+                      </>
+                    ) : (
+                      <span>この文章で迷宮へ挑む</span>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </section>
 
@@ -1338,7 +1585,11 @@ export default function DungeonPage() {
                   語彙カードを1枚デッキに加える
                 </h2>
                 <p className="mt-0.5 text-[11px] text-[#A89F8E] sm:mt-1 sm:text-xs">
-                  マイ辞書からの抽選＋時折「お試し」高レアカードが出現します。
+                  {run.runMode === "random"
+                    ? "全語彙プールからのランダム抽選（未所持カードは今回限りのお試し）。"
+                    : run.runMode === "impromptu"
+                      ? "入力した文章から生まれた語彙（＋強化コピー／今回限りのお試し）が出現。"
+                      : "マイ辞書からの抽選＋時折「お試し」高レアカードが出現します。"}
                 </p>
               </div>
 

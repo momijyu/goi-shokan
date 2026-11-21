@@ -1,4 +1,4 @@
-import { generateEndlessEnemy, STAGES, type StageDef } from "@/data/enemies";
+import { generateEndlessEnemy, getStageDef, type StageDef } from "@/data/enemies";
 import {
   BLACK_COVENANT_RELICS,
   getRelicDef,
@@ -30,6 +30,42 @@ import {
 
 export const MAX_HAND_SIZE = 10;
 
+export type RunDeckMode = "standard" | "random" | "impromptu";
+export type RandomDeckStyle = "chaos" | "mult" | "self_harm" | "chain";
+
+export const RANDOM_STYLE_META: {
+  id: RandomDeckStyle;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "chaos",
+    label: "おまかせ（全語彙）",
+    description: "全語彙マスターから完全無作為に初期デッキ・報酬を抽選",
+  },
+  {
+    id: "mult",
+    label: "乗算・重撃",
+    description: "戦闘乗算・次札乗算・貫通・再発動系を中心に選出",
+  },
+  {
+    id: "self_harm",
+    label: "自傷・背水『不』",
+    description: "自傷・背水・『不』反転と『不』カードが必ず混ざる即席構成",
+  },
+  {
+    id: "chain",
+    label: "連鎖・手数",
+    description: "ドロー・コスト回復・スキル連鎖・追撃系を中心に選出",
+  },
+];
+
+export interface StartRunOptions {
+  mode?: RunDeckMode;
+  randomStyle?: RandomDeckStyle;
+  impromptuEntries?: WordMasterEntry[];
+}
+
 export type RunPhase =
   | "battle"
   | "reward_card"
@@ -57,6 +93,9 @@ export interface RunState {
   stageId: string;
   stageName: string;
   isDaily: boolean;
+  runMode: RunDeckMode;
+  randomStyle?: RandomDeckStyle;
+  impromptuPool?: WordMasterEntry[];
   rngSeed: number;
   rngStep: number;
   phase: RunPhase;
@@ -181,9 +220,11 @@ function pickEnemyForFloor(
   const idx = Math.floor(rng() * pool.length);
   const picked = pool[idx];
   const scale = 1 + (floor - 1) * 0.18;
+  const earlyMult =
+    stage.earlyHalfHpFloors && floor <= stage.earlyHalfHpFloors ? 0.5 : 1;
   return {
     ...picked,
-    maxHp: Math.floor(picked.maxHp * scale),
+    maxHp: Math.max(1, Math.floor(picked.maxHp * scale * earlyMult)),
   };
 }
 
@@ -249,42 +290,240 @@ function pickRandomByRarity(
   return picked;
 }
 
+const STYLE_SKILL_MAP: Record<Exclude<RandomDeckStyle, "chaos">, Set<WordMasterEntry["skillType"]>> = {
+  mult: new Set(["mult_battle", "mult_next", "pierce_burst", "retrigger_next"]),
+  self_harm: new Set([
+    "desperation_mult",
+    "sacrifice_mult",
+    "vengeance_flat",
+    "self_harm_mult",
+    "curse_stack",
+    "moroha_edge",
+    "f_resonance",
+    "f_invert",
+    "f_sacrifice",
+    "chaos_curse",
+  ]),
+  chain: new Set([
+    "draw",
+    "energy",
+    "skill_chain",
+    "cost_amp",
+    "pursuit_combo",
+    "diversity_mult",
+    "mimic_last",
+    "accumulate_cards",
+    "retrigger_next",
+    "english_link",
+    "english_discount",
+  ]),
+};
+
+function matchesRandomStyle(word: WordMasterEntry, style: RandomDeckStyle): boolean {
+  if (style === "chaos") return true;
+  return STYLE_SKILL_MAP[style].has(word.skillType);
+}
+
+function buildRandomStarterDeck(
+  style: RandomDeckStyle,
+  save: PlayerSaveData,
+  rng: () => number
+): BattleCard[] {
+  const picked: WordMasterEntry[] = [];
+  const used = new Set<string>();
+
+  const pickFrom = (candidates: WordMasterEntry[], count: number) => {
+    const shuffled = shuffleWithRng(
+      candidates.filter((w) => !used.has(w.term)),
+      rng
+    );
+    for (const item of shuffled.slice(0, count)) {
+      used.add(item.term);
+      picked.push(item);
+    }
+  };
+
+  if (style === "chaos") {
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank === "N"), 3);
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank === "R"), 2);
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank === "SR"), 1);
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank === "SSR" || w.rank === "UR"), 1);
+  } else if (style === "self_harm") {
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => w.cost <= 1 && (w.rank === "N" || w.rank === "R")
+      ),
+      2
+    );
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank === "F"), 1);
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => matchesRandomStyle(w, "self_harm") && w.rank !== "F" && w.rank !== "SSR"
+      ),
+      3
+    );
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => matchesRandomStyle(w, "self_harm") && (w.rank === "SSR" || w.rank === "SR")
+      ),
+      1
+    );
+  } else {
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => w.cost <= 1 && (w.rank === "N" || w.rank === "R") && matchesRandomStyle(w, style)
+      ),
+      2
+    );
+    pickFrom(
+      WORD_MASTER_LIST.filter((w) => w.cost <= 1 && (w.rank === "N" || w.rank === "R")),
+      1
+    );
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => matchesRandomStyle(w, style) && (w.rank === "R" || w.rank === "SR")
+      ),
+      3
+    );
+    pickFrom(
+      WORD_MASTER_LIST.filter(
+        (w) => matchesRandomStyle(w, style) && (w.rank === "SSR" || w.rank === "UR")
+      ),
+      1
+    );
+  }
+
+  if (picked.length < 7) {
+    pickFrom(WORD_MASTER_LIST.filter((w) => w.rank !== "F"), 7 - picked.length);
+  }
+
+  return picked.map((entry, i) =>
+    toBattleCard(entry, 0, `rand_${style}_${i}`, !save.ownedWords[entry.term])
+  );
+}
+
+function buildImpromptuStarterDeck(
+  entries: WordMasterEntry[],
+  rng: () => number
+): { deck: BattleCard[]; pool: WordMasterEntry[] } {
+  const uniqueMap = new Map<string, WordMasterEntry>();
+  for (const e of entries) {
+    if (!uniqueMap.has(e.term)) uniqueMap.set(e.term, e);
+  }
+  const pool = Array.from(uniqueMap.values());
+  if (pool.length === 0) {
+    const fallback = WORD_MASTER_LIST.slice(0, 6);
+    return {
+      deck: fallback.map((e, i) => toBattleCard(e, 0, `imp_fb_${i}`, false)),
+      pool: fallback,
+    };
+  }
+
+  const deck: BattleCard[] = [];
+  if (pool.length <= 6) {
+    pool.forEach((entry, i) => {
+      deck.push(toBattleCard(entry, 0, `imp_${i}`, false));
+    });
+    const cycled = shuffleWithRng(pool, rng);
+    let idx = 0;
+    while (deck.length < 6) {
+      const entry = cycled[idx % cycled.length];
+      deck.push(toBattleCard(entry, 1, `imp_dup_${idx}`, false));
+      idx += 1;
+    }
+    return { deck, pool };
+  }
+
+  const lowCost = shuffleWithRng(pool.filter((w) => w.cost <= 1), rng);
+  const higher = pool.filter((w) => w.cost > 1);
+  const chosen: WordMasterEntry[] = [];
+  const used = new Set<string>();
+
+  for (const w of lowCost.slice(0, 4)) {
+    used.add(w.term);
+    chosen.push(w);
+  }
+  for (const w of [...higher, ...lowCost]) {
+    if (chosen.length >= 7) break;
+    if (!used.has(w.term)) {
+      used.add(w.term);
+      chosen.push(w);
+    }
+  }
+  return {
+    deck: chosen.map((entry, i) => toBattleCard(entry, 0, `imp_${i}`, false)),
+    pool,
+  };
+}
+
 export function startNewRun(
   save: PlayerSaveData,
   stageId: string,
-  isDaily: boolean
+  isDaily: boolean,
+  options?: StartRunOptions
 ): RunState {
-  const stage = STAGES.find((s) => s.id === stageId) ?? STAGES[0];
+  const stage = getStageDef(stageId);
   const seed = isDaily
     ? hashStringToSeed(`daily_${getTodayJstDateKey()}`)
     : hashStringToSeed(`${Date.now()}_${Math.random()}`);
   const rng = createSeededRng(seed);
 
-  const aceOwned =
-    save.ownedWords[save.aceTerm] ??
-    getWordMaster(save.aceTerm) ??
-    getWordMaster("示唆")!;
+  const runMode: RunDeckMode =
+    options?.mode ??
+    (stage.id === "stage_random"
+      ? "random"
+      : stage.id === "stage_impromptu"
+        ? "impromptu"
+        : "standard");
+  const randomStyle: RandomDeckStyle = options?.randomStyle ?? "chaos";
 
-  const ownedList = Object.values(save.ownedWords);
-  // Build randomized starter deck from owned words by rarity quota: 常×4 + 良×2 + エース×1
-  const starterNormals = pickRandomByRarity(ownedList, "N", 4, rng, aceOwned.term);
-  const starterRares = pickRandomByRarity(ownedList, "R", 2, rng, aceOwned.term);
+  let deck: BattleCard[] = [];
+  let impromptuPool: WordMasterEntry[] | undefined;
 
-  const deck: BattleCard[] = [...starterNormals, ...starterRares].map((entry, i) =>
-    toBattleCard(entry, 0, `start_${i}`)
-  );
-  deck.push(toBattleCard(aceOwned, 0, "ace"));
+  if (runMode === "random") {
+    deck = buildRandomStarterDeck(randomStyle, save, rng);
+  } else if (runMode === "impromptu" && options?.impromptuEntries?.length) {
+    const built = buildImpromptuStarterDeck(options.impromptuEntries, rng);
+    deck = built.deck;
+    impromptuPool = built.pool;
+  } else {
+    const aceOwned =
+      save.ownedWords[save.aceTerm] ??
+      getWordMaster(save.aceTerm) ??
+      getWordMaster("示唆")!;
 
+    const ownedList = Object.values(save.ownedWords);
+    // Build randomized starter deck from owned words by rarity quota: 常×4 + 良×2 + エース×1
+    const starterNormals = pickRandomByRarity(ownedList, "N", 4, rng, aceOwned.term);
+    const starterRares = pickRandomByRarity(ownedList, "R", 2, rng, aceOwned.term);
+
+    deck = [...starterNormals, ...starterRares].map((entry, i) =>
+      toBattleCard(entry, 0, `start_${i}`)
+    );
+    deck.push(toBattleCard(aceOwned, 0, "ace"));
+  }
+
+  const ownedListCount = Object.keys(save.ownedWords).length;
   const firstEnemy = pickEnemyForFloor(stage, 1, false, rng);
   const drawPile = shuffleWithRng(deck, rng);
   const hand = drawPile.slice(0, Math.min(MAX_HAND_SIZE, 5));
   const remainingDraw = drawPile.slice(hand.length);
 
+  const styleMeta = RANDOM_STYLE_META.find((s) => s.id === randomStyle);
+  const resolvedStageName = isDaily
+    ? `日替わり迷宮 (${getTodayJstDateKey()})`
+    : runMode === "random" && styleMeta && randomStyle !== "chaos"
+      ? `${stage.name}（${styleMeta.label}）`
+      : stage.name;
+
   return {
     runId: `run_${Date.now()}`,
     stageId: stage.id,
-    stageName: isDaily ? `日替わり迷宮 (${getTodayJstDateKey()})` : stage.name,
+    stageName: resolvedStageName,
     isDaily,
+    runMode,
+    randomStyle: runMode === "random" ? randomStyle : undefined,
+    impromptuPool,
     rngSeed: seed,
     rngStep: 10,
     phase: "battle",
@@ -344,7 +583,7 @@ export function startNewRun(
     enemyShield: 0,
     enemyAtkBonus: 0,
     enemyIntentIdx: 0,
-    ownedVocabularyCount: ownedList.length,
+    ownedVocabularyCount: ownedListCount,
     cardChoices: [],
     relicChoices: [],
     covenantRefusedCount: 0,
@@ -1546,13 +1785,136 @@ function handleEnemyDefeated(prev: RunState, save?: PlayerSaveData): RunState {
     return state;
   }
 
-  if (save) {
-    return {
-      ...buildCardRewardsFromSave(state, save),
-      phase: "reward_card",
-    };
+  return {
+    ...buildCardRewardsForRun(state, save),
+    phase: "reward_card",
+  };
+}
+
+function buildRandomCardRewards(
+  state: RunState,
+  save?: PlayerSaveData
+): RunState {
+  let rngStep = state.rngStep;
+  const rng = createSeededRng(state.rngSeed + rngStep * 7919);
+  rngStep += 1;
+
+  const style = state.randomStyle ?? "chaos";
+  const allNonF = WORD_MASTER_LIST.filter((w) => w.rank !== "F");
+  const stylePool =
+    style === "chaos"
+      ? allNonF
+      : WORD_MASTER_LIST.filter((w) => matchesRandomStyle(w, style));
+  const styledShuffled = shuffleWithRng(
+    stylePool.length >= 2 ? stylePool : allNonF,
+    rng
+  );
+  const fullShuffled = shuffleWithRng(WORD_MASTER_LIST, rng);
+
+  const choices: BattleCard[] = [];
+  const used = new Set<string>();
+  const addChoice = (entry: WordMasterEntry, idx: number) => {
+    used.add(entry.term);
+    const isUnowned = save ? !save.ownedWords[entry.term] : true;
+    choices.push(
+      toBattleCard(entry, 0, `rand_rew_${state.floor}_${idx}`, isUnowned)
+    );
+  };
+
+  for (const cand of styledShuffled) {
+    if (choices.length >= 2) break;
+    if (!used.has(cand.term)) addChoice(cand, choices.length);
+  }
+  for (const cand of fullShuffled) {
+    if (choices.length >= 3) break;
+    if (!used.has(cand.term)) addChoice(cand, choices.length);
   }
 
+  return {
+    ...state,
+    cardChoices: choices,
+    rngStep,
+  };
+}
+
+function buildImpromptuCardRewards(state: RunState): RunState {
+  let rngStep = state.rngStep;
+  const rng = createSeededRng(state.rngSeed + rngStep * 7919);
+  rngStep += 1;
+
+  const pool = state.impromptuPool ?? [];
+  if (pool.length === 0) {
+    return buildRandomCardRewards(state);
+  }
+
+  const inDeckTerms = new Set(state.deck.map((c) => c.term));
+  const unseen = shuffleWithRng(
+    pool.filter((w) => !inDeckTerms.has(w.term)),
+    rng
+  );
+  const seen = shuffleWithRng(pool, rng);
+  const choices: BattleCard[] = [];
+  const pickedTerms = new Set<string>();
+
+  for (const entry of unseen) {
+    if (choices.length >= 3) break;
+    pickedTerms.add(entry.term);
+    choices.push(
+      toBattleCard(entry, 0, `imp_rew_${state.floor}_${choices.length}`, true)
+    );
+  }
+
+  const upgradeBonus = state.floor >= 3 ? 3 : 2;
+  for (const entry of seen) {
+    if (choices.length >= 3) break;
+    if (!pickedTerms.has(entry.term)) {
+      pickedTerms.add(entry.term);
+      choices.push(
+        toBattleCard(
+          entry,
+          upgradeBonus,
+          `imp_up_${state.floor}_${choices.length}`,
+          true
+        )
+      );
+    }
+  }
+
+  // If sentence had fewer than 3 distinct words, offer higher-upgraded variations of those words
+  let dupIdx = 0;
+  while (choices.length < 3) {
+    const entry = seen[dupIdx % seen.length];
+    choices.push(
+      toBattleCard(
+        entry,
+        upgradeBonus + Math.floor(dupIdx / seen.length) + 1,
+        `imp_extra_${state.floor}_${choices.length}`,
+        true
+      )
+    );
+    dupIdx += 1;
+  }
+
+  return {
+    ...state,
+    cardChoices: choices,
+    rngStep,
+  };
+}
+
+export function buildCardRewardsForRun(
+  state: RunState,
+  save?: PlayerSaveData
+): RunState {
+  if (state.runMode === "random") {
+    return buildRandomCardRewards(state, save);
+  }
+  if (state.runMode === "impromptu") {
+    return buildImpromptuCardRewards(state);
+  }
+  if (save) {
+    return buildCardRewardsFromSave(state, save);
+  }
   const rng = createSeededRng(state.rngSeed + state.rngStep * 7919);
   const shuffled = shuffleWithRng(WORD_MASTER_LIST, rng);
   return {
@@ -1560,7 +1922,6 @@ function handleEnemyDefeated(prev: RunState, save?: PlayerSaveData): RunState {
     cardChoices: shuffled
       .slice(0, 3)
       .map((c, i) => toBattleCard(c, 0, `rew_${state.floor}_${i}`, false)),
-    phase: "reward_card",
     rngStep: state.rngStep + 1,
   };
 }
@@ -2113,7 +2474,7 @@ export function proceedNextBattleFloor(
   prev: RunState,
   enterEndless = false
 ): RunState {
-  const stage = STAGES.find((s) => s.id === prev.stageId) ?? STAGES[0];
+  const stage = getStageDef(prev.stageId);
   const nextFloor = prev.floor + 1;
   const isEndless = prev.isEndless || enterEndless;
 

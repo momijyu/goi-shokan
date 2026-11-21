@@ -5,7 +5,7 @@ import { RefreshCw, Send, Trophy } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACHIEVEMENTS } from "@/data/achievements";
-import { STAGES } from "@/data/enemies";
+import { SPECIAL_STAGES, STAGES } from "@/data/enemies";
 import { getRelicDef } from "@/data/relics";
 import { formatJapaneseNumber, getTodayJstDateKey } from "@/lib/bignum";
 import {
@@ -237,7 +237,7 @@ export default function RecordsPage() {
                 >
                   全迷宮
                 </button>
-                {STAGES.map((st) => (
+                {[...STAGES, ...SPECIAL_STAGES].map((st) => (
                   <button
                     key={st.id}
                     type="button"

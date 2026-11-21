@@ -17,27 +17,17 @@ import {
 import { useSaveData } from "@/components/GameShell";
 import { WordCard } from "@/components/WordCard";
 import { WordDetailDialog } from "@/components/WordDetailDialog";
-import { analyzeTextForPack, type AnalyzeSummary, type MinedCardResult } from "@/lib/analyzer";
+import {
+  analyzeTextForPack,
+  MINING_SAMPLE_TEXTS,
+  type AnalyzeSummary,
+  type MinedCardResult,
+} from "@/lib/analyzer";
 import { applyMiningPackToSave, updateDeckPoolInSave } from "@/lib/storage";
 import {
   ATTR_META,
   type Attribute,
 } from "@/types/game";
-
-const SAMPLE_TEXTS: { label: string; text: string }[] = [
-  {
-    label: "論理の企画書風",
-    text: "現状の施策は理想と大きく乖離している。したがって、前提となる構造を再定義する必要がある。仮説の妥当性を精査したうえで抜本的な体系へ刷新すれば、必然的に成果へ帰結する蓋然性が高い。",
-  },
-  {
-    label: "激動の創作・感情文",
-    text: "漆黒の蒼穹に閃光が轟く刹那、抑えきれぬ激情と渇望が胸を焦がす。どれほどの葛藤と絶望に震える夜を越えても、心の奥底に宿る矜持だけは決して儚く消えはしない。",
-  },
-  {
-    label: "口癖まみれの雑文（不狙い）",
-    text: "えっと、なんか今日の会議マジでやばい雰囲気だったと思う。とりあえずやばいやばいやばいやばいって感じで、なんかもうてきとうに進めるしかないかなーって感じ。",
-  },
-];
 
 export default function SummonHallPage() {
   const { save, setSave } = useSaveData();
@@ -132,7 +122,7 @@ export default function SummonHallPage() {
             サンプル文で試す
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {SAMPLE_TEXTS.map((s) => {
+            {MINING_SAMPLE_TEXTS.map((s) => {
               const isSelected = text === s.text;
               return (
                 <button
