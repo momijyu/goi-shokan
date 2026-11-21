@@ -266,6 +266,7 @@ export default function DungeonPage() {
   const [impromptuText, setImpromptuText] = useState("");
   const [impromptuLoading, setImpromptuLoading] = useState(false);
   const [impromptuError, setImpromptuError] = useState<string | null>(null);
+  const [lobbyTab, setLobbyTab] = useState<"standard" | "special">("standard");
 
   useEffect(() => {
     setMobileBattleFullscreen(Boolean(run));
@@ -416,8 +417,39 @@ export default function DungeonPage() {
           </div>
         </section>
 
+        {/* Mobile Mode Tabs (PC shows all sections together) */}
+        <div className="grid grid-cols-2 gap-1.5 border border-[#2E2822] bg-[#121016] p-1 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setLobbyTab("standard")}
+            className={`border py-2 font-serif text-xs font-bold transition-colors ${
+              lobbyTab === "standard"
+                ? "border-[#D4AF37] bg-[#261E0E] text-[#E3B94E]"
+                : "border-transparent bg-transparent text-[#968E7E] hover:text-[#ECE6D8]"
+            }`}
+          >
+            通常迷宮・日替わり
+          </button>
+          <button
+            type="button"
+            onClick={() => setLobbyTab("special")}
+            className={`inline-flex items-center justify-center gap-1 border py-2 font-serif text-xs font-bold transition-colors ${
+              lobbyTab === "special"
+                ? "border-[#57B889] bg-[#11221B] text-[#9BD1B5]"
+                : "border-transparent bg-transparent text-[#968E7E] hover:text-[#ECE6D8]"
+            }`}
+          >
+            <Shuffle className="h-3.5 w-3.5" />
+            <span>特殊（無作為・一文）</span>
+          </button>
+        </div>
+
         {/* Daily Labyrinth Banner */}
-        <section className="border border-[#C93A2B] bg-[#180E10] p-4 sm:p-5">
+        <section
+          className={`border border-[#C93A2B] bg-[#180E10] p-4 sm:p-5 ${
+            lobbyTab === "standard" ? "block" : "hidden lg:block"
+          }`}
+        >
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <div className="flex items-center gap-2 font-mono text-xs font-bold text-[#E05A47]">
@@ -441,8 +473,75 @@ export default function DungeonPage() {
           </div>
         </section>
 
+        {/* Normal Stages + PC Ace Preview */}
+        <div
+          className={
+            lobbyTab === "standard"
+              ? "grid gap-4 lg:grid-cols-3"
+              : "hidden gap-4 lg:grid lg:grid-cols-3"
+          }
+        >
+          <div className="space-y-3 lg:col-span-2">
+            {STAGES.map((stage) => {
+              const isCleared = save.clearedStages.includes(stage.id);
+              return (
+                <div
+                  key={stage.id}
+                  className="kaku-frame flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-[#8A7348]">
+                        全{stage.totalFloors}階層
+                      </span>
+                      {isCleared && (
+                        <span className="border border-[#2F7D5B] bg-[#11221B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#57B889]">
+                          踏破済
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="mt-0.5 font-serif text-lg font-extrabold text-[#F2ECE0]">
+                      {stage.name}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-[#A89F8E]">{stage.subtitle}</p>
+                    <p className="mt-1 font-mono text-[11px] text-[#8E8678]">
+                      目安：{stage.recommendedPower}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartStage(stage.id, false)}
+                    className="shrink-0 border border-[#8A7348] bg-[#1D1924] px-5 py-2.5 font-serif text-sm font-bold text-[#E3B94E] transition-colors hover:border-[#D4AF37] hover:bg-[#2B2434]"
+                  >
+                    挑戦する
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Current Ace & Pool Preview (PC sidebar only; mobile shows compact badge above) */}
+          <div className="hidden border border-[#2E2822] bg-[#121016] p-4 lg:block">
+            <p className="font-mono text-[10px] tracking-widest text-[#8A7348]">
+              持ち込みエース（1枚）
+            </p>
+            <div className="mt-3 max-w-[200px]">
+              <WordCard word={aceWord} isAce />
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-[#968E7E]">
+              迷宮のドロップ候補：マイ辞書{" "}
+              <strong className="font-mono text-[#ECE6D8]">
+                {save.deckPoolTerms.length}/30
+              </strong>{" "}
+              語
+            </p>
+          </div>
+        </div>
+
         {/* Special Modes: Full Random & One-Text Impromptu */}
-        <section className="space-y-3">
+        <section
+          className={lobbyTab === "special" ? "space-y-3" : "hidden space-y-3 lg:block"}
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
               <p className="font-mono text-[10px] tracking-[0.22em] text-[#8A7348]">
@@ -635,65 +734,6 @@ export default function DungeonPage() {
             })()}
           </div>
         </section>
-
-        {/* Normal Stages + PC Ace Preview */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="space-y-3 lg:col-span-2">
-            {STAGES.map((stage) => {
-              const isCleared = save.clearedStages.includes(stage.id);
-              return (
-                <div
-                  key={stage.id}
-                  className="kaku-frame flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] text-[#8A7348]">
-                        全{stage.totalFloors}階層
-                      </span>
-                      {isCleared && (
-                        <span className="border border-[#2F7D5B] bg-[#11221B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#57B889]">
-                          踏破済
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-0.5 font-serif text-lg font-extrabold text-[#F2ECE0]">
-                      {stage.name}
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[#A89F8E]">{stage.subtitle}</p>
-                    <p className="mt-1 font-mono text-[11px] text-[#8E8678]">
-                      目安：{stage.recommendedPower}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleStartStage(stage.id, false)}
-                    className="shrink-0 border border-[#8A7348] bg-[#1D1924] px-5 py-2.5 font-serif text-sm font-bold text-[#E3B94E] transition-colors hover:border-[#D4AF37] hover:bg-[#2B2434]"
-                  >
-                    挑戦する
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Current Ace & Pool Preview (PC sidebar only; mobile shows compact badge above) */}
-          <div className="hidden border border-[#2E2822] bg-[#121016] p-4 lg:block">
-            <p className="font-mono text-[10px] tracking-widest text-[#8A7348]">
-              持ち込みエース（1枚）
-            </p>
-            <div className="mt-3 max-w-[200px]">
-              <WordCard word={aceWord} isAce />
-            </div>
-            <p className="mt-3 text-xs leading-relaxed text-[#968E7E]">
-              迷宮のドロップ候補：マイ辞書{" "}
-              <strong className="font-mono text-[#ECE6D8]">
-                {save.deckPoolTerms.length}/30
-              </strong>{" "}
-              語
-            </p>
-          </div>
-        </div>
       </div>
     );
   }
