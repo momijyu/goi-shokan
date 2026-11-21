@@ -428,7 +428,7 @@ function buildImpromptuStarterDeck(
     let idx = 0;
     while (deck.length < 6) {
       const entry = cycled[idx % cycled.length];
-      deck.push(toBattleCard(entry, 1, `imp_dup_${idx}`, false));
+      deck.push(toBattleCard(entry, 0, `imp_dup_${idx}`, false));
       idx += 1;
     }
     return { deck, pool };
