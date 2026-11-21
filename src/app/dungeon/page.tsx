@@ -391,26 +391,23 @@ export default function DungeonPage() {
       save.ownedWords[save.aceTerm] ?? getWordMaster(save.aceTerm) ?? getWordMaster("示唆")!;
 
     return (
-      <div className="space-y-6">
-        <section className="kaku-frame p-4 sm:p-5">
+      <div className="space-y-4 sm:space-y-6">
+        <section className="kaku-frame p-3.5 sm:p-5">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <p className="font-mono text-[10px] tracking-[0.25em] text-[#8A7348]">
                 PHASE 02 // DUNGEON LOBBY
               </p>
-              <h1 className="mt-1 font-serif text-2xl font-extrabold text-[#F2ECE0] sm:text-3xl">
+              <h1 className="mt-1 font-serif text-xl font-extrabold text-[#F2ECE0] sm:text-3xl">
                 迷宮選択 ＆ 出撃準備
               </h1>
-              <p className="mt-1 text-xs text-[#A89F8E]">
+              <p className="mt-1 hidden text-xs text-[#A89F8E] lg:block">
                 所持語彙から毎回ランダム選出（常×4・良×2）＋エース1枚で潜入。道中でマイ辞書（{save.deckPoolTerms.length}枚）から3択ドロップし、遺物の組み合わせで強大な言霊を構築せよ。
-              </p>
-              <p className="mt-1.5 font-mono text-[11px] text-[#E3B94E] lg:hidden">
-                ★ 持ち込みエース：{aceWord.term}（マイ辞書 {save.deckPoolTerms.length}/30語）
               </p>
             </div>
             <Link
               href="/deck"
-              className="inline-flex shrink-0 items-center justify-center gap-2 border border-[#8A7348] bg-[#261E0E] px-4 py-2 font-serif text-xs font-bold text-[#E3B94E] hover:bg-[#352A14]"
+              className="hidden shrink-0 items-center justify-center gap-2 border border-[#8A7348] bg-[#261E0E] px-4 py-2 font-serif text-xs font-bold text-[#E3B94E] hover:bg-[#352A14] lg:inline-flex"
             >
               <span>マイ辞書・エース変更</span>
             </Link>
@@ -418,30 +415,55 @@ export default function DungeonPage() {
         </section>
 
         {/* Mobile Mode Tabs (PC shows all sections together) */}
-        <div className="grid grid-cols-2 gap-1.5 border border-[#2E2822] bg-[#121016] p-1 lg:hidden">
+        <div
+          role="tablist"
+          aria-label="迷宮モード切替"
+          className="grid grid-cols-2 border border-[#2E2822] bg-[#0E0D12] lg:hidden"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={lobbyTab === "standard"}
             onClick={() => setLobbyTab("standard")}
-            className={`border py-2 font-serif text-xs font-bold transition-colors ${
+            className={`border-b-2 px-2 py-2.5 text-center font-serif text-xs font-bold transition-colors ${
               lobbyTab === "standard"
-                ? "border-[#D4AF37] bg-[#261E0E] text-[#E3B94E]"
-                : "border-transparent bg-transparent text-[#968E7E] hover:text-[#ECE6D8]"
+                ? "border-b-[#E3B94E] bg-[#1C1814] text-[#F4D06F]"
+                : "border-b-transparent text-[#8E8678] hover:text-[#CFC8B8]"
             }`}
           >
-            通常迷宮・日替わり
+            通常迷宮（マイ辞書）
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={lobbyTab === "special"}
             onClick={() => setLobbyTab("special")}
-            className={`inline-flex items-center justify-center gap-1 border py-2 font-serif text-xs font-bold transition-colors ${
+            className={`inline-flex items-center justify-center gap-1 border-b-2 px-2 py-2.5 font-serif text-xs font-bold transition-colors ${
               lobbyTab === "special"
-                ? "border-[#57B889] bg-[#11221B] text-[#9BD1B5]"
-                : "border-transparent bg-transparent text-[#968E7E] hover:text-[#ECE6D8]"
+                ? "border-b-[#57B889] bg-[#111D18] text-[#9BD1B5]"
+                : "border-b-transparent text-[#8E8678] hover:text-[#CFC8B8]"
             }`}
           >
-            <Shuffle className="h-3.5 w-3.5" />
+            <Shuffle className="h-3.5 w-3.5 shrink-0" />
             <span>特殊（無作為・一文）</span>
           </button>
+        </div>
+
+        {/* Mobile Compact Deck/Ace Bar (Only shown in Standard tab) */}
+        <div
+          className={`flex items-center justify-between gap-2 border border-[#2E2822] bg-[#121016] px-3 py-2 lg:hidden ${
+            lobbyTab === "standard" ? "flex" : "hidden"
+          }`}
+        >
+          <span className="min-w-0 truncate font-mono text-[11px] text-[#E3B94E]">
+            ★ エース：{aceWord.term}（辞書 {save.deckPoolTerms.length}/30）
+          </span>
+          <Link
+            href="/deck"
+            className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-serif text-[11px] font-bold text-[#E3B94E] hover:bg-[#352A14]"
+          >
+            変更
+          </Link>
         </div>
 
         {/* Daily Labyrinth Banner */}
