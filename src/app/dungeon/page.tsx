@@ -331,7 +331,7 @@ export default function DungeonPage() {
     setImpromptuLoading(true);
     setImpromptuError(null);
     try {
-      const summary = await analyzeTextForPack(trimmed, 14);
+      const summary = await analyzeTextForPack(trimmed, 20);
       if (summary.packCards.length < 3) {
         setImpromptuError(
           summary.packCards.length === 0
