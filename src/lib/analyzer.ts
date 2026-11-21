@@ -648,6 +648,7 @@ export interface AnalyzeSummary {
   totalExtractedWords: number;
   attributeCounts: Record<Attribute, number>;
   repeatedTerms: string[];
+  hasPredicate: boolean;
 }
 
 const RANK_PRIORITY: Record<Rank, number> = {
@@ -956,10 +957,18 @@ export async function analyzeTextForPack(
     .filter((c) => c.isRepeatedPenalty)
     .map((c) => c.entry.term);
 
+  const hasPredicate = allCandidates.some(
+    (c) =>
+      c.entry.pos === "verb" ||
+      c.entry.pos === "adj" ||
+      c.entry.pos === "adv"
+  );
+
   return {
     packCards: finalPack,
     totalExtractedWords: allCandidates.length,
     attributeCounts,
     repeatedTerms,
+    hasPredicate,
   };
 }

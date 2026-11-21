@@ -332,11 +332,13 @@ export default function DungeonPage() {
     setImpromptuError(null);
     try {
       const summary = await analyzeTextForPack(trimmed, 20);
-      if (summary.packCards.length < 3) {
+      if (summary.packCards.length < 6 || !summary.hasPredicate) {
         setImpromptuError(
           summary.packCards.length === 0
             ? "抽出できる語彙が見つかりませんでした。もう少し日本語の名詞・動詞・形容詞を含めてください。"
-            : `抽出された語彙が ${summary.packCards.length}語 でした。一文即興の迷宮では3語以上の語彙が含まれる文章を入力してください。`
+            : summary.packCards.length < 6
+              ? `抽出された語彙が ${summary.packCards.length}語 でした。一文即興の迷宮では6語以上の語彙が含まれる文章を入力してください。`
+              : "名詞の羅列ではなく、動詞・形容詞などを含む一文を入力してください。"
         );
         return;
       }
@@ -586,7 +588,7 @@ export default function DungeonPage() {
                         }}
                         maxLength={2500}
                         rows={3}
-                        placeholder="戦闘に使う1つの文章を入力してください（3語以上・最大2,500文字）..."
+                        placeholder="戦闘に使う1つの文章を入力してください（6語以上・最大2,500文字）..."
                         className="w-full resize-y border border-[#322C26] bg-[#0B0A0E] p-2.5 text-xs leading-relaxed text-[#F2ECE0] placeholder:text-[#787166] focus:border-[#D4AF37] focus:outline-none"
                       />
                       <div className="flex items-center justify-between font-mono text-[10px] text-[#968E7E]">
