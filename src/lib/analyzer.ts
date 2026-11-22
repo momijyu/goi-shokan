@@ -648,6 +648,7 @@ export interface AnalyzeSummary {
   totalExtractedWords: number;
   attributeCounts: Record<Attribute, number>;
   repeatedTerms: string[];
+  hasPredicate: boolean;
 }
 
 const RANK_PRIORITY: Record<Rank, number> = {
@@ -694,7 +695,25 @@ const STOPWORDS = new Set([
   "感じ",
 ]);
 
-export async function analyzeTextForPack(text: string): Promise<AnalyzeSummary> {
+export const MINING_SAMPLE_TEXTS: { label: string; text: string }[] = [
+  {
+    label: "論理の企画書風",
+    text: "現状の施策は理想と大きく乖離している。したがって、前提となる構造を再定義する必要がある。仮説の妥当性を精査したうえで抜本的な体系へ刷新すれば、必然的に成果へ帰結する蓋然性が高い。",
+  },
+  {
+    label: "激動の創作・感情文",
+    text: "漆黒の蒼穹に閃光が轟く刹那、抑えきれぬ激情と渇望が胸を焦がす。どれほどの葛藤と絶望に震える夜を越えても、心の奥底に宿る矜持だけは決して儚く消えはしない。",
+  },
+  {
+    label: "口癖まみれの雑文（不狙い）",
+    text: "えっと、なんか今日の会議マジでやばい雰囲気だったと思う。とりあえずやばいやばいやばいやばいって感じで、なんかもうてきとうに進めるしかないかなーって感じ。",
+  },
+];
+
+export async function analyzeTextForPack(
+  text: string,
+  maxPackCards = 6
+): Promise<AnalyzeSummary> {
   const trimmed = text.trim().slice(0, 2500);
   const [tokenizer, sudachi] = await Promise.all([
     getTokenizer(),
@@ -893,37 +912,63 @@ export async function analyzeTextForPack(text: string): Promise<AnalyzeSummary> 
     });
   }
 
-  // Pack selection: up to 6 distinct cards, prioritizing rare + spam F + balanced mix
+  // Pack selection: up to maxPackCards distinct cards, prioritizing rare + spam F + balanced mix
   allCandidates.sort((a, b) => {
     const scoreA = RANK_PRIORITY[a.entry.rank] * 10 + (a.isRepeatedPenalty ? 55 : 0);
     const scoreB = RANK_PRIORITY[b.entry.rank] * 10 + (b.isRepeatedPenalty ? 55 : 0);
     return scoreB - scoreA;
   });
 
+  const limit = Math.max(1, Math.floor(maxPackCards));
   const packCards: MinedCardResult[] = [];
-  if (allCandidates.length <= 6) {
+  if (allCandidates.length <= limit) {
     packCards.push(...allCandidates);
-  } else {
-    packCards.push(...allCandidates.slice(0, 4));
+  } else if (limit <= 6) {
+    packCards.push(...allCandidates.slice(0, Math.min(4, limit)));
     const tail = allCandidates.slice(4);
     const midIdx = Math.floor(tail.length / 2);
-    packCards.push(tail[0]);
-    if (tail[midIdx] && tail[midIdx] !== tail[0]) {
+    if (tail[0] && packCards.length < limit) packCards.push(tail[0]);
+    if (tail[midIdx] && tail[midIdx] !== tail[0] && packCards.length < limit) {
       packCards.push(tail[midIdx]);
-    } else if (tail[1]) {
+    } else if (tail[1] && packCards.length < limit) {
       packCards.push(tail[1]);
+    }
+  } else {
+    // Larger impromptu pool: keep top cards + balanced spread of lower-cost / common cards
+    const headCount = Math.ceil(limit * 0.6);
+    packCards.push(...allCandidates.slice(0, headCount));
+    const tail = allCandidates.slice(headCount);
+    const needed = limit - packCards.length;
+    if (tail.length <= needed) {
+      packCards.push(...tail);
+    } else {
+      const step = tail.length / needed;
+      for (let i = 0; i < needed; i++) {
+        const pick = tail[Math.min(tail.length - 1, Math.floor(i * step))];
+        if (pick && !packCards.includes(pick)) {
+          packCards.push(pick);
+        }
+      }
     }
   }
 
-  const finalPack = packCards.slice(0, 6);
+  const finalPack = packCards.slice(0, limit);
   const repeatedTerms = finalPack
     .filter((c) => c.isRepeatedPenalty)
     .map((c) => c.entry.term);
+
+  const hasPredicate = allCandidates.some(
+    (c) =>
+      c.entry.pos === "verb" ||
+      c.entry.pos === "adj" ||
+      c.entry.pos === "adv"
+  );
 
   return {
     packCards: finalPack,
     totalExtractedWords: allCandidates.length,
     attributeCounts,
     repeatedTerms,
+    hasPredicate,
   };
 }

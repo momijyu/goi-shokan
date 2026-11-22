@@ -7,6 +7,7 @@ export interface StageDef {
   recommendedPower: string;
   totalFloors: number;
   baseHpScale: number;
+  earlyHalfHpFloors?: number;
   enemies: EnemyDef[];
   boss: EnemyDef;
 }
@@ -213,6 +214,39 @@ export const STAGES: StageDef[] = [
     },
   },
 ];
+
+export const SPECIAL_STAGES: StageDef[] = [
+  {
+    id: "stage_random",
+    name: "混沌の無作為迷宮",
+    subtitle: "マイ辞書不使用。毎回ランダム選出される即席デッキで戦う純粋ローグライク。",
+    recommendedPower: "中級",
+    totalFloors: STAGES[1].totalFloors,
+    baseHpScale: STAGES[1].baseHpScale,
+    earlyHalfHpFloors: 2,
+    enemies: STAGES[1].enemies,
+    boss: STAGES[1].boss,
+  },
+  {
+    id: "stage_impromptu",
+    name: "一文即興の迷宮",
+    subtitle: "入力した1つの文章から生まれた語彙だけで挑む限定戦。",
+    recommendedPower: "中級",
+    totalFloors: STAGES[1].totalFloors,
+    baseHpScale: STAGES[1].baseHpScale,
+    earlyHalfHpFloors: 2,
+    enemies: STAGES[1].enemies,
+    boss: STAGES[1].boss,
+  },
+];
+
+export function getStageDef(stageId: string): StageDef {
+  return (
+    STAGES.find((s) => s.id === stageId) ??
+    SPECIAL_STAGES.find((s) => s.id === stageId) ??
+    STAGES[0]
+  );
+}
 
 const ENDLESS_SPRITES = ["slime", "wisp", "oni", "knight", "golem", "tengu", "dragon", "overlord"];
 const ENDLESS_ATTRS: Attribute[] = ["logic", "emotion", "sense", "matter"];
