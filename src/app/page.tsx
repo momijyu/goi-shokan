@@ -30,7 +30,7 @@ import {
 } from "@/types/game";
 
 export default function SummonHallPage() {
-  const { save, setSave } = useSaveData();
+  const { save, hydrated, setSave, openTutorial } = useSaveData();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -114,6 +114,68 @@ export default function SummonHallPage() {
           </Link>
         </div>
       </section>
+
+      {/* First-Time Progression Guide (Disappears automatically once user completes first run) */}
+      {hydrated && save.runHistories.length === 0 && (
+        <section className="border border-[#5A4722] bg-[#16130E] p-3.5 sm:p-4">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono text-[11px] font-bold text-[#E3B94E]">
+              はじめての冒険ステップ（迷宮挑戦までの流れ）
+            </span>
+            <button
+              type="button"
+              onClick={openTutorial}
+              className="font-mono text-[11px] text-[#CFC8B8] underline underline-offset-4 hover:text-[#E3B94E]"
+            >
+              詳しい遊び方を開く
+            </button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div
+              className={`border px-3 py-2 text-xs ${
+                save.totalSummons >= 1
+                  ? "border-[#2F7D5B] bg-[#11221B]/80 text-[#9BD1B5]"
+                  : "border-[#8A7348] bg-[#261E0E]/60 text-[#F4D06F]"
+              }`}
+            >
+              <div className="font-mono text-[10px] font-bold">
+                {save.totalSummons >= 1 ? "✓ STEP 1 完了" : "STEP 1（いまここ）"}
+              </div>
+              <div className="mt-0.5 font-serif font-bold">
+                下のサンプル文・文章から語彙を採掘する
+              </div>
+            </div>
+
+            <Link
+              href="/deck"
+              className="border border-[#2E2822] bg-[#0B0A0E] px-3 py-2 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348]"
+            >
+              <div className="font-mono text-[10px] font-bold text-[#8A7348]">
+                STEP 2（任意・初期20枚あり）
+              </div>
+              <div className="mt-0.5 font-serif font-bold text-[#ECE6D8]">
+                マイ辞書・エースを確認・編成する →
+              </div>
+            </Link>
+
+            <Link
+              href="/dungeon"
+              className={`border px-3 py-2 text-xs transition-colors ${
+                save.totalSummons >= 1
+                  ? "border-[#C93A2B] bg-[#261314] text-[#F7F3EA] hover:bg-[#3A1B1D]"
+                  : "border-[#2E2822] bg-[#0B0A0E] text-[#CFC8B8] hover:border-[#C93A2B]"
+              }`}
+            >
+              <div className="font-mono text-[10px] font-bold text-[#E05A47]">
+                STEP 3
+              </div>
+              <div className="mt-0.5 font-serif font-bold">
+                迷宮（第一層）へ出撃する →
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Text Input Area */}
       <section className="border border-[#2E2822] bg-[#121016] p-4 sm:p-5">
@@ -334,6 +396,24 @@ export default function SummonHallPage() {
                 </div>
               </div>
             )}
+
+            {/* Next Step CTA */}
+            <div className="mt-5 grid gap-2 border-t border-[#2E2822] pt-4 sm:grid-cols-2">
+              <Link
+                href="/deck"
+                className="flex items-center justify-center gap-2 border border-[#8A7348] bg-[#261E0E] py-2.5 font-serif text-xs font-bold text-[#E3B94E] transition-colors hover:bg-[#352A14]"
+              >
+                <span>マイ辞書・エースを編成 ({save.deckPoolTerms.length}/30)</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href="/dungeon"
+                className="flex items-center justify-center gap-2 border border-[#C93A2B] bg-[#291112] py-2.5 font-serif text-xs font-extrabold text-[#F7F3EA] transition-colors hover:bg-[#C93A2B]"
+              >
+                <span>この辞書で迷宮へ挑む</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </motion.section>
         )}
       </AnimatePresence>

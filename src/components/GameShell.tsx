@@ -11,11 +11,13 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Compass,
+  HelpCircle,
   Layers,
   Pickaxe,
   Trophy,
   UserCheck,
 } from "lucide-react";
+import { TutorialDialog } from "@/components/TutorialDialog";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +41,7 @@ interface SaveContextValue {
   resetSave: () => void;
   mobileBattleFullscreen: boolean;
   setMobileBattleFullscreen: (active: boolean) => void;
+  openTutorial: () => void;
 }
 
 const SaveContext = createContext<SaveContextValue>({
@@ -48,6 +51,7 @@ const SaveContext = createContext<SaveContextValue>({
   resetSave: () => {},
   mobileBattleFullscreen: false,
   setMobileBattleFullscreen: () => {},
+  openTutorial: () => {},
 });
 
 export function useSaveData() {
@@ -99,12 +103,22 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const [guestNameInput, setGuestNameInput] = useState("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [mobileBattleFullscreen, setMobileBattleFullscreen] = useState(false);
+  const [manualTutorialOpen, setManualTutorialOpen] = useState(false);
   const isMobileDungeonImmersive = mobileBattleFullscreen && pathname === "/dungeon";
 
   const setSave = (next: PlayerSaveData) => {
     clientSnapshotCache = next;
     saveSaveData(next);
     storeListeners.forEach((l) => l());
+  };
+
+  const isTutorialOpen = manualTutorialOpen || (hydrated && !save.tutorialDismissed);
+
+  const handleDismissTutorial = () => {
+    setManualTutorialOpen(false);
+    if (!save.tutorialDismissed) {
+      setSave({ ...save, tutorialDismissed: true });
+    }
   };
 
   const resetSave = () => {
@@ -140,6 +154,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         resetSave,
         mobileBattleFullscreen,
         setMobileBattleFullscreen,
+        openTutorial: () => setManualTutorialOpen(true),
       }}
     >
       <div
@@ -188,8 +203,8 @@ export function GameShell({ children }: { children: React.ReactNode }) {
               })}
             </nav>
 
-            {/* Right Status + Guest/Account Modal */}
-            <div className="flex items-center gap-2">
+            {/* Right Status + Help + Guest/Account Modal */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="hidden items-center gap-3 border border-[#2A241E] bg-[#121016] px-2.5 py-1 font-mono text-[11px] sm:flex">
                 <span className="text-[#968E7E]">
                   語彙 <strong className="text-[#ECE6D8]">{ownedCount}</strong>
@@ -200,6 +215,16 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                   <strong className={bestFmt.colorClass}>{bestFmt.text}</strong>
                 </span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setManualTutorialOpen(true)}
+                aria-label="遊び方ガイドを開く"
+                className="flex items-center gap-1 border border-[#3A332A] bg-[#141218] px-2 py-1.5 text-xs text-[#E3B94E] transition-colors hover:border-[#8A7348] hover:bg-[#1E1912]"
+              >
+                <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden font-medium sm:inline">遊び方</span>
+              </button>
 
               <Dialog open={accountDialogOpen} onOpenChange={handleOpenAccount}>
                 <DialogTrigger
@@ -343,6 +368,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
           </nav>
         )}
       </div>
+      <TutorialDialog open={isTutorialOpen} onDismiss={handleDismissTutorial} />
     </SaveContext.Provider>
   );
 }

@@ -516,6 +516,11 @@ export default function DungeonPage() {
                       <span className="font-mono text-[10px] text-[#8A7348]">
                         全{stage.totalFloors}階層
                       </span>
+                      {hydrated && save.runHistories.length === 0 && stage.id === "stage_1" && (
+                        <span className="border border-[#D4AF37] bg-[#261E0E] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#F4D06F]">
+                          初挑戦におすすめ
+                        </span>
+                      )}
                       {isCleared && (
                         <span className="border border-[#2F7D5B] bg-[#11221B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#57B889]">
                           踏破済
@@ -817,8 +822,8 @@ export default function DungeonPage() {
               })()}
             </div>
           ) : (
-            <p className="mt-2 text-[11px] text-[#787166]">
-              手札の語彙を選択すると詳細が表示されます。
+            <p className="mt-2 text-[11px] leading-relaxed text-[#787166]">
+              手札の語彙をクリックし、「こうげき / スキル / ぼうぎょ」を選択してください。先にスキルで倍率を上げると高出力が狙えます。
             </p>
           )}
         </div>

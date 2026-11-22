@@ -298,6 +298,7 @@ export interface PlayerSaveData {
   bestDamage: number;
   totalSummons: number;
   recentTextHashes?: string[];
+  tutorialDismissed?: boolean;
 }
 
 export const PLUS_STAT_STEP = 5;
