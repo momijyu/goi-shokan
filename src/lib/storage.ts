@@ -47,6 +47,7 @@ export function createInitialSaveData(): PlayerSaveData {
     bestDamage: 0,
     totalSummons: 0,
     recentTextHashes: [],
+    tutorialDismissed: false,
   };
 }
 
