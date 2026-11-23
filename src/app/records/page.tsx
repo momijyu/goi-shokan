@@ -5,14 +5,18 @@ import { RefreshCw, Send, Trophy } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACHIEVEMENTS } from "@/data/achievements";
-import { SPECIAL_STAGES, STAGES } from "@/data/enemies";
+import { STAGES } from "@/data/enemies";
 import { getRelicDef } from "@/data/relics";
 import { formatJapaneseNumber, getTodayJstDateKey } from "@/lib/bignum";
 import {
   fetchRankings,
+  getRunRankingGenre,
   isRankingConfigured,
+  RANKING_GENRE_META,
+  submitGenreBestRecords,
   submitRankingScore,
   type RankingEntry,
+  type RankingGenre,
 } from "@/lib/rankings";
 
 export default function RecordsPage() {
@@ -21,16 +25,18 @@ export default function RecordsPage() {
   const rankingEnabled = isRankingConfigured();
   const todayDateKey = hydrated ? getTodayJstDateKey() : "";
 
-  const [rankMode, setRankMode] = useState<"overall" | "daily">("overall");
+  const [genre, setGenre] = useState<RankingGenre>("all");
+  const [dailyScope, setDailyScope] = useState<"today" | "all">("today");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [refreshTick, setRefreshTick] = useState(0);
-  const queryKey = `${rankMode}_${stageFilter}_${refreshTick}`;
+  const queryKey = `${genre}_${dailyScope}_${stageFilter}_${refreshTick}`;
   const [rankingResult, setRankingResult] = useState<{
     key: string;
     entries: RankingEntry[];
     error: string | null;
   } | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
 
   const loading = rankingEnabled && rankingResult?.key !== queryKey;
@@ -41,9 +47,10 @@ export default function RecordsPage() {
     if (!rankingEnabled) return;
     let cancelled = false;
     fetchRankings({
-      mode: rankMode,
+      genre,
+      dailyScope,
       dailyDate: getTodayJstDateKey(),
-      stageId: stageFilter,
+      stageId: genre === "standard" ? stageFilter : "all",
       limit: 50,
     }).then((res) => {
       if (!cancelled) {
@@ -57,10 +64,17 @@ export default function RecordsPage() {
     return () => {
       cancelled = true;
     };
-  }, [rankingEnabled, rankMode, stageFilter, queryKey]);
+  }, [rankingEnabled, genre, dailyScope, stageFilter, queryKey]);
 
   const loadRankings = () => {
     setRefreshTick((n) => n + 1);
+  };
+
+  const handleSelectGenre = (nextGenre: RankingGenre) => {
+    setGenre(nextGenre);
+    if (nextGenre !== "standard") {
+      setStageFilter("all");
+    }
   };
 
   const handleSubmitHistoryEntry = async (
@@ -91,13 +105,50 @@ export default function RecordsPage() {
     }
   };
 
-  const bestLocalHistory = save.runHistories.reduce<
+  const handleSubmitAllGenres = async () => {
+    if (syncingAll) return;
+    setSyncingAll(true);
+    setSubmitMessage(null);
+    const res = await submitGenreBestRecords(save.runHistories, save.guestName);
+    setSyncingAll(false);
+    if (res.submittedCount === 0 && res.failedCount === 0) {
+      setSubmitMessage("送信対象の記録がありません。");
+      return;
+    }
+    if (res.failedCount === 0) {
+      setSubmitMessage(`全ジャンルの自己ベスト（${res.submittedCount}件）を送信しました。`);
+    } else {
+      setSubmitMessage(
+        `${res.submittedCount}件送信完了 / ${res.failedCount}件失敗（${res.firstError ?? "エラー"}）`
+      );
+    }
+    loadRankings();
+  };
+
+  const bestForActiveGenre = save.runHistories.reduce<
     (typeof save.runHistories)[number] | null
   >((best, cur) => {
     if (cur.maxDamage <= 0) return best;
+    const curGenre = getRunRankingGenre(cur);
+    if (genre !== "all" && curGenre !== genre) return best;
+    if (genre === "standard" && stageFilter !== "all" && cur.stageId !== stageFilter) {
+      return best;
+    }
+    if (
+      genre === "daily" &&
+      dailyScope === "today" &&
+      todayDateKey &&
+      getTodayJstDateKey(new Date(cur.createdAt)) !== todayDateKey
+    ) {
+      return best;
+    }
     if (!best) return cur;
     return cur.maxDamage > best.maxDamage ? cur : best;
   }, null);
+
+  const hasAnyPositiveHistory = save.runHistories.some((h) => h.maxDamage > 0);
+  const activeGenreMeta =
+    RANKING_GENRE_META.find((g) => g.id === genre) ?? RANKING_GENRE_META[0];
 
   return (
     <div className="space-y-6">
@@ -169,15 +220,30 @@ export default function RecordsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {bestLocalHistory && rankingEnabled && (
+                {bestForActiveGenre && rankingEnabled && (
                   <button
                     type="button"
-                    disabled={submittingId === bestLocalHistory.id}
-                    onClick={() => handleSubmitHistoryEntry(bestLocalHistory)}
+                    disabled={submittingId === bestForActiveGenre.id || syncingAll}
+                    onClick={() => handleSubmitHistoryEntry(bestForActiveGenre)}
                     className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-mono text-[11px] font-bold text-[#E3B94E] hover:bg-[#352A14] disabled:opacity-50"
                   >
                     <Send className="h-3 w-3" />
-                    <span>自己最高記録を登録</span>
+                    <span>
+                      {genre === "all"
+                        ? "総合自己ベストを送信"
+                        : `${activeGenreMeta.shortLabel}ベストを送信`}
+                    </span>
+                  </button>
+                )}
+                {hasAnyPositiveHistory && rankingEnabled && (
+                  <button
+                    type="button"
+                    disabled={syncingAll}
+                    onClick={handleSubmitAllGenres}
+                    className="inline-flex items-center gap-1.5 border border-[#2F7D5B] bg-[#11221B] px-2.5 py-1 font-mono text-[11px] font-bold text-[#6EE7B7] hover:bg-[#173026] disabled:opacity-50"
+                  >
+                    <Send className="h-3 w-3" />
+                    <span>{syncingAll ? "送信中..." : "全ジャンル一括送信"}</span>
                   </button>
                 )}
                 <button
@@ -198,59 +264,89 @@ export default function RecordsPage() {
               </p>
             )}
 
-            {/* Mode & Stage Filter */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#221D18] pb-3">
-              <div className="flex items-center gap-1.5 font-mono text-xs">
-                <button
-                  type="button"
-                  onClick={() => setRankMode("overall")}
-                  className={`border px-3 py-1 transition-colors ${
-                    rankMode === "overall"
-                      ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
-                      : "border-[#2E2822] bg-[#0B0A0E] text-[#968E7E] hover:text-[#ECE6D8]"
-                  }`}
-                >
-                  総合ランキング
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRankMode("daily")}
-                  className={`border px-3 py-1 transition-colors ${
-                    rankMode === "daily"
-                      ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
-                      : "border-[#2E2822] bg-[#0B0A0E] text-[#968E7E] hover:text-[#ECE6D8]"
-                  }`}
-                >
-                  本日の日替わり{todayDateKey ? ` (${todayDateKey})` : ""}
-                </button>
+            {/* Genre Selector + Sub-Filters */}
+            <div className="space-y-2.5 border-b border-[#221D18] pb-3">
+              <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+                {RANKING_GENRE_META.map((item) => {
+                  const active = genre === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectGenre(item.id)}
+                      className={`border px-3 py-1 transition-colors ${
+                        active
+                          ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
+                          : "border-[#2E2822] bg-[#0B0A0E] text-[#968E7E] hover:text-[#ECE6D8]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex flex-wrap items-center gap-1 font-mono text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setStageFilter("all")}
-                  className={`border px-2 py-1 ${
-                    stageFilter === "all"
-                      ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
-                      : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
-                  }`}
-                >
-                  全迷宮
-                </button>
-                {[...STAGES, ...SPECIAL_STAGES].map((st) => (
-                  <button
-                    key={st.id}
-                    type="button"
-                    onClick={() => setStageFilter(st.id)}
-                    className={`border px-2 py-1 ${
-                      stageFilter === st.id
-                        ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
-                        : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
-                    }`}
-                  >
-                    {st.name.split("：")[0]}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-[11px] text-[#8E8678]">
+                  {activeGenreMeta.description}
+                </span>
+
+                {genre === "standard" && (
+                  <div className="flex flex-wrap items-center gap-1 font-mono text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setStageFilter("all")}
+                      className={`border px-2 py-0.5 ${
+                        stageFilter === "all"
+                          ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
+                          : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
+                      }`}
+                    >
+                      全層
+                    </button>
+                    {STAGES.map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setStageFilter(st.id)}
+                        className={`border px-2 py-0.5 ${
+                          stageFilter === st.id
+                            ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
+                            : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
+                        }`}
+                      >
+                        {st.name.split("：")[0]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {genre === "daily" && (
+                  <div className="flex items-center gap-1 font-mono text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setDailyScope("today")}
+                      className={`border px-2 py-0.5 ${
+                        dailyScope === "today"
+                          ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
+                          : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
+                      }`}
+                    >
+                      本日{todayDateKey ? ` (${todayDateKey})` : ""}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDailyScope("all")}
+                      className={`border px-2 py-0.5 ${
+                        dailyScope === "all"
+                          ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
+                          : "border-[#2A241E] bg-[#0B0A0E] text-[#8E8678]"
+                      }`}
+                    >
+                      歴代すべて
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -306,11 +402,27 @@ export default function RecordsPage() {
                           >
                             {entry.cleared ? "踏破" : "挑戦"}
                           </span>
-                          {entry.isDaily && (
-                            <span className="border border-[#8A7348] bg-[#1E170A] px-1.5 py-0.5 font-mono text-[10px] text-[#E3B94E]">
-                              日替わり
-                            </span>
-                          )}
+                          {(() => {
+                            const entryGenre = getRunRankingGenre(entry);
+                            const badgeStyle =
+                              entryGenre === "daily"
+                                ? "border-[#8A7348] bg-[#1E170A] text-[#E3B94E]"
+                                : entryGenre === "random"
+                                  ? "border-[#2F7D5B] bg-[#11221B] text-[#6EE7B7]"
+                                  : entryGenre === "impromptu"
+                                    ? "border-[#3B82C4] bg-[#0E1622] text-[#69A9E6]"
+                                    : "border-[#3A332A] bg-[#141218] text-[#A89F8E]";
+                            const badgeText =
+                              RANKING_GENRE_META.find((g) => g.id === entryGenre)
+                                ?.shortLabel ?? "通常";
+                            return (
+                              <span
+                                className={`border px-1.5 py-0.5 font-mono text-[10px] ${badgeStyle}`}
+                              >
+                                {badgeText}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#968E7E]">
                           <span>{entry.stageName}</span>

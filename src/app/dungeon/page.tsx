@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertOctagon,
+  Bookmark,
   BookMarked,
   Calendar,
   ChevronDown,
@@ -63,7 +64,11 @@ import {
   type StartRunOptions,
 } from "@/lib/battleEngine";
 import { submitRankingScore } from "@/lib/rankings";
-import { applyMiningPackToSave, recordRunResultInSave } from "@/lib/storage";
+import {
+  applyDeckPresetInSave,
+  applyMiningPackToSave,
+  recordRunResultInSave,
+} from "@/lib/storage";
 import {
   ATTR_META,
   getEffectiveStats,
@@ -389,6 +394,8 @@ export default function DungeonPage() {
   if (!run) {
     const aceWord =
       save.ownedWords[save.aceTerm] ?? getWordMaster(save.aceTerm) ?? getWordMaster("示唆")!;
+    const presets = save.deckPresets ?? [];
+    const activePreset = presets.find((p) => p.id === save.activePresetId) ?? null;
 
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -449,21 +456,49 @@ export default function DungeonPage() {
           </button>
         </div>
 
-        {/* Mobile Compact Deck/Ace Bar (Only shown in Standard tab) */}
+        {/* Mobile Compact Deck/Ace & Preset Bar (Only shown in Standard tab) */}
         <div
-          className={`flex items-center justify-between gap-2 border border-[#2E2822] bg-[#121016] px-3 py-2 lg:hidden ${
+          className={`flex-col gap-2 border border-[#2E2822] bg-[#121016] px-3 py-2 lg:hidden ${
             lobbyTab === "standard" ? "flex" : "hidden"
           }`}
         >
-          <span className="min-w-0 truncate font-mono text-[11px] text-[#E3B94E]">
-            ★ エース：{aceWord.term}（辞書 {save.deckPoolTerms.length}/30）
-          </span>
-          <Link
-            href="/deck"
-            className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-serif text-[11px] font-bold text-[#E3B94E] hover:bg-[#352A14]"
-          >
-            変更
-          </Link>
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate font-mono text-[11px] text-[#E3B94E]">
+              ★ エース：{aceWord.term}（辞書 {save.deckPoolTerms.length}/30）
+            </span>
+            <Link
+              href="/deck"
+              className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-serif text-[11px] font-bold text-[#E3B94E] hover:bg-[#352A14]"
+            >
+              変更・保存
+            </Link>
+          </div>
+          {presets.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-[#221D18] pt-1.5">
+              <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-[#8A7348]">
+                <Bookmark className="h-3 w-3" />
+                プリセット
+              </span>
+              <select
+                aria-label="出撃プリセット選択"
+                value={activePreset?.id ?? ""}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  setSave(applyDeckPresetInSave(save, e.target.value));
+                }}
+                className="min-w-0 flex-1 border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[11px] text-[#ECE6D8] focus:border-[#D4AF37] focus:outline-none"
+              >
+                <option value="" disabled>
+                  現在の編成（未選択）
+                </option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}（★{p.aceTerm}・{p.deckPoolTerms.length}枚）
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Daily Labyrinth Banner */}
@@ -547,21 +582,62 @@ export default function DungeonPage() {
             })}
           </div>
 
-          {/* Current Ace & Pool Preview (PC sidebar only; mobile shows compact badge above) */}
-          <div className="hidden border border-[#2E2822] bg-[#121016] p-4 lg:block">
-            <p className="font-mono text-[10px] tracking-widest text-[#8A7348]">
-              持ち込みエース（1枚）
-            </p>
-            <div className="mt-3 max-w-[200px]">
-              <WordCard word={aceWord} isAce />
+          {/* Current Ace & Preset Switcher (PC sidebar only; mobile shows compact bar above) */}
+          <div className="hidden space-y-4 border border-[#2E2822] bg-[#121016] p-4 lg:block">
+            <div className="space-y-1.5 border-b border-[#221D18] pb-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] tracking-widest text-[#8A7348]">
+                  <Bookmark className="h-3 w-3" />
+                  出撃プリセット
+                </span>
+                <Link
+                  href="/deck"
+                  className="font-mono text-[10px] text-[#E3B94E] hover:underline"
+                >
+                  管理 →
+                </Link>
+              </div>
+              {presets.length > 0 ? (
+                <select
+                  aria-label="PC出撃プリセット選択"
+                  value={activePreset?.id ?? ""}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setSave(applyDeckPresetInSave(save, e.target.value));
+                  }}
+                  className="w-full border border-[#3A332A] bg-[#0B0A0E] px-2.5 py-1.5 font-mono text-xs text-[#ECE6D8] focus:border-[#D4AF37] focus:outline-none"
+                >
+                  <option value="" disabled>
+                    現在の編成（未保存）
+                  </option>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}（★{p.aceTerm}・{p.deckPoolTerms.length}枚）
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[11px] text-[#787166]">
+                  「マイ辞書」で編成をプリセット保存するとここから即切替できます。
+                </p>
+              )}
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-[#968E7E]">
-              迷宮のドロップ候補：マイ辞書{" "}
-              <strong className="font-mono text-[#ECE6D8]">
-                {save.deckPoolTerms.length}/30
-              </strong>{" "}
-              語
-            </p>
+
+            <div>
+              <p className="font-mono text-[10px] tracking-widest text-[#8A7348]">
+                持ち込みエース（1枚）
+              </p>
+              <div className="mt-3 max-w-[200px]">
+                <WordCard word={aceWord} isAce />
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-[#968E7E]">
+                迷宮のドロップ候補：マイ辞書{" "}
+                <strong className="font-mono text-[#ECE6D8]">
+                  {save.deckPoolTerms.length}/30
+                </strong>{" "}
+                語
+              </p>
+            </div>
           </div>
         </div>
 

@@ -285,11 +285,21 @@ export interface RunHistoryEntry {
   createdAt: string;
 }
 
+export interface DeckPreset {
+  id: string;
+  name: string;
+  deckPoolTerms: string[];
+  aceTerm: string;
+  updatedAt: string;
+}
+
 export interface PlayerSaveData {
   guestName: string;
   ownedWords: Record<string, OwnedWord>;
   deckPoolTerms: string[];
   aceTerm: string;
+  deckPresets?: DeckPreset[];
+  activePresetId?: string | null;
   unlockedAchievements: string[];
   clearedStages: string[];
   discoveredRelics: string[];

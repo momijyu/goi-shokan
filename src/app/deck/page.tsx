@@ -2,7 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Crown, LayoutGrid, Plus, Rows3, Shield, Sword, X } from "lucide-react";
+import {
+  Bookmark,
+  Check,
+  ChevronDown,
+  Crown,
+  LayoutGrid,
+  Plus,
+  Rows3,
+  Save,
+  Shield,
+  Sword,
+  Trash2,
+  X,
+} from "lucide-react";
 import { AttributeGuideBar } from "@/components/AttributeGuideBar";
 import { useSaveData } from "@/components/GameShell";
 import { WordCard } from "@/components/WordCard";
@@ -12,7 +25,14 @@ import {
   WordFilterBar,
   type WordFilterState,
 } from "@/components/WordFilterBar";
-import { updateDeckPoolInSave } from "@/lib/storage";
+import {
+  applyDeckPresetInSave,
+  deleteDeckPresetInSave,
+  isPresetSyncedWithSave,
+  MAX_DECK_PRESETS,
+  saveDeckPresetInSave,
+  updateDeckPoolInSave,
+} from "@/lib/storage";
 import {
   ATTR_META,
   getEffectiveStats,
@@ -35,6 +55,14 @@ export default function DeckPage() {
   const [detailWord, setDetailWord] = useState<OwnedWord | null>(null);
   const [poolOpenMobile, setPoolOpenMobile] = useState(true);
   const [mobileTwoCol, setMobileTwoCol] = useState(true);
+  const [presetNameInput, setPresetNameInput] = useState("");
+  const [presetsOpen, setPresetsOpen] = useState(true);
+
+  const presets = save.deckPresets ?? [];
+  const activePreset = presets.find((p) => p.id === save.activePresetId) ?? null;
+  const isActivePresetModified = activePreset
+    ? !isPresetSyncedWithSave(save, activePreset)
+    : false;
 
   const ownedList = Object.values(save.ownedWords);
   const deckPoolSet = new Set(save.deckPoolTerms);
@@ -75,6 +103,13 @@ export default function DeckPage() {
       }
     }
     setSave(updateDeckPoolInSave(save, nextPool, term));
+  };
+
+  const handleSaveNewPreset = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (presets.length >= MAX_DECK_PRESETS) return;
+    setSave(saveDeckPresetInSave(save, { name: presetNameInput }));
+    setPresetNameInput("");
   };
 
   const attrCounts: Record<Attribute, number> = {
@@ -312,6 +347,159 @@ export default function DeckPage() {
           </div>
         </div>
       </div>
+
+      {/* Deck Presets Section */}
+      <section className="space-y-2.5 border border-[#2E2822] bg-[#121016] p-3 sm:space-y-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setPresetsOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 text-left"
+          >
+            <Bookmark className="h-4 w-4 shrink-0 text-[#E3B94E]" />
+            <h2 className="font-serif text-sm font-bold text-[#F7F3EA] sm:text-base">
+              デッキプリセット（{presets.length} / {MAX_DECK_PRESETS}）
+            </h2>
+            <ChevronDown
+              className={`h-4 w-4 text-[#8A7348] transition-transform ${
+                presetsOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {activePreset && isActivePresetModified && (
+            <button
+              type="button"
+              onClick={() =>
+                setSave(saveDeckPresetInSave(save, { id: activePreset.id }))
+              }
+              className="inline-flex items-center gap-1 border border-[#D4AF37] bg-[#261E0E] px-2.5 py-1 font-mono text-[11px] font-bold text-[#F4D06F] hover:bg-[#3A2E14]"
+            >
+              <Save className="h-3 w-3" />
+              <span>「{activePreset.name}」を上書き保存</span>
+            </button>
+          )}
+        </div>
+
+        {presetsOpen && (
+          <div className="space-y-2.5">
+            <form
+              onSubmit={handleSaveNewPreset}
+              className="flex flex-col gap-2 sm:flex-row"
+            >
+              <input
+                type="text"
+                value={presetNameInput}
+                onChange={(e) => setPresetNameInput(e.target.value)}
+                maxLength={20}
+                placeholder={`プリセット名（空欄なら「プリセット ${presets.length + 1}」）`}
+                className="flex-1 border border-[#3A332A] bg-[#0B0A0E] px-3 py-1.5 text-xs text-[#F2ECE0] placeholder:text-[#787166] focus:border-[#D4AF37] focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={presets.length >= MAX_DECK_PRESETS}
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-4 py-1.5 font-serif text-xs font-bold text-[#E3B94E] hover:bg-[#3A2E14] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>
+                  {presets.length >= MAX_DECK_PRESETS
+                    ? "保存上限(8件)に到達"
+                    : "現在の編成を新規保存"}
+                </span>
+              </button>
+            </form>
+
+            {presets.length === 0 ? (
+              <p className="font-mono text-[11px] text-[#8E8678]">
+                まだプリセットがありません。現在のマイ辞書＆エースを保存すると、迷宮画面からも1タップで切り替えられます。
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {presets.map((preset) => {
+                  const isActive = save.activePresetId === preset.id;
+                  const synced = isPresetSyncedWithSave(save, preset);
+                  return (
+                    <div
+                      key={preset.id}
+                      className={`flex flex-col justify-between gap-2 border p-2.5 ${
+                        isActive
+                          ? "border-[#D4AF37] bg-[#1D180E]"
+                          : "border-[#2A241E] bg-[#0B0A0E]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate font-serif text-xs font-bold text-[#F2ECE0]">
+                              {preset.name}
+                            </span>
+                            {isActive && (
+                              <span
+                                className={`shrink-0 border px-1 py-0.5 font-mono text-[9px] font-bold ${
+                                  synced
+                                    ? "border-[#2F7D5B] bg-[#11221B] text-[#6EE7B7]"
+                                    : "border-[#D4AF37] bg-[#261E0E] text-[#F4D06F]"
+                                }`}
+                              >
+                                {synced ? "使用中" : "編集あり"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] text-[#968E7E]">
+                            <span className="inline-flex items-center gap-0.5 text-[#E3B94E]">
+                              <Crown className="h-2.5 w-2.5" />
+                              {preset.aceTerm}
+                            </span>
+                            <span>{preset.deckPoolTerms.length}枚</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSave(deleteDeckPresetInSave(save, preset.id))
+                          }
+                          title="プリセットを削除"
+                          className="shrink-0 p-1 text-[#787166] hover:text-[#E05A47]"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={isActive && synced}
+                          onClick={() =>
+                            setSave(applyDeckPresetInSave(save, preset.id))
+                          }
+                          className={`flex-1 border py-1 font-mono text-[11px] font-bold transition-colors ${
+                            isActive && synced
+                              ? "cursor-default border-[#2F7D5B]/50 bg-[#11221B]/50 text-[#6EE7B7]"
+                              : "border-[#3A332A] bg-[#141218] text-[#ECE6D8] hover:border-[#8A7348] hover:text-[#E3B94E]"
+                          }`}
+                        >
+                          {isActive && synced ? "適用済み" : "この編成を適用"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSave(saveDeckPresetInSave(save, { id: preset.id }))
+                          }
+                          title="現在のマイ辞書＆エースで上書き"
+                          className="border border-[#3A332A] bg-[#141218] px-2 py-1 font-mono text-[10px] text-[#A89F8E] hover:border-[#8A7348] hover:text-[#E3B94E]"
+                        >
+                          上書き
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Filter & Sort + Full Owned Grid */}
       <section className="space-y-3 border border-[#2E2822] bg-[#121016] p-3 sm:space-y-4 sm:p-4">

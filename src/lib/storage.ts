@@ -10,6 +10,7 @@ import { createProceduralCard, type MinedCardResult } from "@/lib/analyzer";
 import { hashStringToSeed } from "@/lib/bignum";
 import {
   formatSkillDescription,
+  type DeckPreset,
   type OwnedWord,
   type PlayerSaveData,
   type RunHistoryEntry,
@@ -39,6 +40,8 @@ export function createInitialSaveData(): PlayerSaveData {
     ownedWords: buildDefaultOwnedWords(),
     deckPoolTerms: [...INITIAL_POOL_TERMS],
     aceTerm: "示唆",
+    deckPresets: [],
+    activePresetId: null,
     unlockedAchievements: [],
     clearedStages: [],
     discoveredRelics: [],
@@ -116,19 +119,52 @@ export function loadSaveData(): PlayerSaveData {
           maxDamage: typeof h.maxDamage === "number" ? h.maxDamage : 0,
         }))
       : defaults.runHistories;
+    const ownedWords = clampOwnedWords({
+      ...defaults.ownedWords,
+      ...(parsed.ownedWords ?? {}),
+    });
+    const safePresets = Array.isArray(parsed.deckPresets)
+      ? parsed.deckPresets
+          .filter(
+            (p): p is DeckPreset =>
+              Boolean(p && typeof p.id === "string" && typeof p.name === "string" && Array.isArray(p.deckPoolTerms))
+          )
+          .slice(0, 8)
+          .map((p) => {
+            const validPool = Array.from(
+              new Set(p.deckPoolTerms.filter((t) => Boolean(ownedWords[t])))
+            ).slice(0, 30);
+            const paddedPool =
+              validPool.length >= 6
+                ? validPool
+                : Array.from(new Set([...validPool, ...INITIAL_POOL_TERMS])).slice(0, 30);
+            const validAce =
+              p.aceTerm && ownedWords[p.aceTerm] ? p.aceTerm : paddedPool[0];
+            return {
+              ...p,
+              name: p.name.trim().slice(0, 20) || "プリセット",
+              deckPoolTerms: paddedPool,
+              aceTerm: validAce,
+            };
+          })
+      : [];
+    const safeActivePresetId =
+      parsed.activePresetId && safePresets.some((p) => p.id === parsed.activePresetId)
+        ? parsed.activePresetId
+        : null;
+
     return {
       ...defaults,
       ...parsed,
       bestDamage: typeof parsed.bestDamage === "number" ? parsed.bestDamage : 0,
       runHistories: safeHistories,
-      ownedWords: clampOwnedWords({
-        ...defaults.ownedWords,
-        ...(parsed.ownedWords ?? {}),
-      }),
+      ownedWords,
       deckPoolTerms:
         parsed.deckPoolTerms && parsed.deckPoolTerms.length >= 6
           ? parsed.deckPoolTerms
           : defaults.deckPoolTerms,
+      deckPresets: safePresets,
+      activePresetId: safeActivePresetId,
       recentTextHashes: parsed.recentTextHashes ?? [],
     };
   } catch {
@@ -251,6 +287,107 @@ export function updateDeckPoolInSave(
     ...current,
     deckPoolTerms: deckPoolTerms.slice(0, 30),
     aceTerm,
+  };
+  saveSaveData(next);
+  return next;
+}
+
+export const MAX_DECK_PRESETS = 8;
+
+export function isPresetSyncedWithSave(
+  save: PlayerSaveData,
+  preset: DeckPreset
+): boolean {
+  if (preset.aceTerm !== save.aceTerm) return false;
+  if (preset.deckPoolTerms.length !== save.deckPoolTerms.length) return false;
+  const setA = new Set(save.deckPoolTerms);
+  return preset.deckPoolTerms.every((t) => setA.has(t));
+}
+
+export function saveDeckPresetInSave(
+  current: PlayerSaveData,
+  params: { id?: string; name?: string }
+): PlayerSaveData {
+  const existing = current.deckPresets ?? [];
+  const pool = current.deckPoolTerms.slice(0, 30);
+  const ace = current.aceTerm;
+  const now = new Date().toISOString();
+
+  if (params.id) {
+    const updatedPresets = existing.map((p) =>
+      p.id === params.id
+        ? {
+            ...p,
+            name: params.name?.trim().slice(0, 20) || p.name,
+            deckPoolTerms: pool,
+            aceTerm: ace,
+            updatedAt: now,
+          }
+        : p
+    );
+    const next: PlayerSaveData = {
+      ...current,
+      deckPresets: updatedPresets,
+      activePresetId: params.id,
+    };
+    saveSaveData(next);
+    return next;
+  }
+
+  if (existing.length >= MAX_DECK_PRESETS) return current;
+  const newId = `preset_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const fallbackName = `プリセット ${existing.length + 1}`;
+  const newPreset: DeckPreset = {
+    id: newId,
+    name: params.name?.trim().slice(0, 20) || fallbackName,
+    deckPoolTerms: pool,
+    aceTerm: ace,
+    updatedAt: now,
+  };
+  const next: PlayerSaveData = {
+    ...current,
+    deckPresets: [...existing, newPreset],
+    activePresetId: newId,
+  };
+  saveSaveData(next);
+  return next;
+}
+
+export function applyDeckPresetInSave(
+  current: PlayerSaveData,
+  presetId: string
+): PlayerSaveData {
+  const preset = (current.deckPresets ?? []).find((p) => p.id === presetId);
+  if (!preset) return current;
+  const validPool = preset.deckPoolTerms.filter((t) => Boolean(current.ownedWords[t]));
+  const finalPool =
+    validPool.length >= 6
+      ? validPool.slice(0, 30)
+      : Array.from(new Set([...validPool, ...current.deckPoolTerms])).slice(0, 30);
+  const finalAce =
+    current.ownedWords[preset.aceTerm] && finalPool.includes(preset.aceTerm)
+      ? preset.aceTerm
+      : finalPool[0] ?? current.aceTerm;
+
+  const next: PlayerSaveData = {
+    ...current,
+    deckPoolTerms: finalPool,
+    aceTerm: finalAce,
+    activePresetId: preset.id,
+  };
+  saveSaveData(next);
+  return next;
+}
+
+export function deleteDeckPresetInSave(
+  current: PlayerSaveData,
+  presetId: string
+): PlayerSaveData {
+  const remaining = (current.deckPresets ?? []).filter((p) => p.id !== presetId);
+  const next: PlayerSaveData = {
+    ...current,
+    deckPresets: remaining,
+    activePresetId: current.activePresetId === presetId ? null : current.activePresetId,
   };
   saveSaveData(next);
   return next;
