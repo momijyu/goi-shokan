@@ -1,6 +1,57 @@
 "use client";
 
 import { getTodayJstDateKey } from "@/lib/bignum";
+import type { RunHistoryEntry } from "@/types/game";
+
+export type RankingGenre = "all" | "standard" | "daily" | "random" | "impromptu";
+
+export const RANKING_GENRE_META: {
+  id: RankingGenre;
+  label: string;
+  shortLabel: string;
+  description: string;
+}[] = [
+  {
+    id: "all",
+    label: "全体（全ルール）",
+    shortLabel: "全体",
+    description: "すべての迷宮・ルールを通じた総合トップ記録",
+  },
+  {
+    id: "standard",
+    label: "通常迷宮",
+    shortLabel: "通常",
+    description: "マイ辞書で挑む第一〜三層（日替わり除く）",
+  },
+  {
+    id: "daily",
+    label: "日替わり迷宮",
+    shortLabel: "日替わり",
+    description: "毎日同一シードで競う特別迷宮",
+  },
+  {
+    id: "random",
+    label: "混沌の無作為迷宮",
+    shortLabel: "無作為",
+    description: "マイ辞書不使用のランダム即席構築",
+  },
+  {
+    id: "impromptu",
+    label: "一文即興の迷宮",
+    shortLabel: "一文即興",
+    description: "1つの文章から生まれた語彙のみの限定戦",
+  },
+];
+
+export function getRunRankingGenre(entry: {
+  stageId: string;
+  isDaily: boolean;
+}): Exclude<RankingGenre, "all"> {
+  if (entry.isDaily) return "daily";
+  if (entry.stageId === "stage_random") return "random";
+  if (entry.stageId === "stage_impromptu") return "impromptu";
+  return "standard";
+}
 
 export interface RankingEntry {
   id: string;
@@ -116,6 +167,15 @@ export async function submitRankingScore(
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
+      if (
+        res.status === 400 &&
+        (input.stageId === "stage_random" || input.stageId === "stage_impromptu")
+      ) {
+        return {
+          ok: false,
+          error: "HTTP 400（Supabase側の特殊迷宮制約マイグレーション未適用）",
+        };
+      }
       return { ok: false, error: `HTTP ${res.status}` };
     }
     return { ok: true };
@@ -124,8 +184,66 @@ export async function submitRankingScore(
   }
 }
 
+export async function submitGenreBestRecords(
+  histories: RunHistoryEntry[],
+  playerName: string
+): Promise<{
+  submittedCount: number;
+  failedCount: number;
+  firstError?: string;
+}> {
+  const bestByBucket = new Map<string, RunHistoryEntry>();
+  for (const h of histories) {
+    if (h.maxDamage <= 0) continue;
+    const genre = getRunRankingGenre(h);
+    const bucketKey =
+      genre === "daily"
+        ? `daily_${getTodayJstDateKey(new Date(h.createdAt))}`
+        : `${genre}_${h.stageId}`;
+    const prev = bestByBucket.get(bucketKey);
+    if (!prev || h.maxDamage > prev.maxDamage) {
+      bestByBucket.set(bucketKey, h);
+    }
+  }
+
+  const targets = Array.from(bestByBucket.values());
+  if (targets.length === 0) {
+    return { submittedCount: 0, failedCount: 0 };
+  }
+
+  const results = await Promise.all(
+    targets.map((h) =>
+      submitRankingScore({
+        runId: h.id,
+        playerName,
+        stageId: h.stageId,
+        stageName: h.stageName,
+        isDaily: h.isDaily,
+        dailyDate: h.isDaily ? getTodayJstDateKey(new Date(h.createdAt)) : null,
+        cleared: h.cleared,
+        reachedFloor: h.reachedFloor,
+        maxDamage: h.maxDamage,
+        relicIds: h.relicIds,
+      })
+    )
+  );
+
+  let submittedCount = 0;
+  let failedCount = 0;
+  let firstError: string | undefined;
+  for (const r of results) {
+    if (r.ok) submittedCount += 1;
+    else {
+      failedCount += 1;
+      if (!firstError && r.error) firstError = r.error;
+    }
+  }
+  return { submittedCount, failedCount, firstError };
+}
+
 export async function fetchRankings(options?: {
-  mode?: "overall" | "daily";
+  genre?: RankingGenre;
+  dailyScope?: "today" | "all";
   dailyDate?: string;
   stageId?: string;
   limit?: number;
@@ -140,11 +258,26 @@ export async function fetchRankings(options?: {
     limit: String(options?.limit ?? 50),
   });
 
-  if (options?.mode === "daily") {
+  const genre = options?.genre ?? "all";
+  if (genre === "daily") {
     params.append("is_daily", "eq.true");
-    params.append("daily_date", `eq.${options.dailyDate ?? getTodayJstDateKey()}`);
-  }
-  if (options?.stageId && options.stageId !== "all") {
+    if (options?.dailyScope !== "all") {
+      params.append("daily_date", `eq.${options?.dailyDate ?? getTodayJstDateKey()}`);
+    }
+  } else if (genre === "random") {
+    params.append("is_daily", "eq.false");
+    params.append("stage_id", "eq.stage_random");
+  } else if (genre === "impromptu") {
+    params.append("is_daily", "eq.false");
+    params.append("stage_id", "eq.stage_impromptu");
+  } else if (genre === "standard") {
+    params.append("is_daily", "eq.false");
+    if (options?.stageId && options.stageId !== "all") {
+      params.append("stage_id", `eq.${options.stageId}`);
+    } else {
+      params.append("stage_id", "in.(stage_1,stage_2,stage_3)");
+    }
+  } else if (options?.stageId && options.stageId !== "all") {
     params.append("stage_id", `eq.${options.stageId}`);
   }
 

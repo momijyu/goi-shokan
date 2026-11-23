@@ -7,7 +7,7 @@ create table if not exists public.rankings (
   id uuid primary key default gen_random_uuid(),
   run_id text not null unique,
   player_name text not null check (char_length(btrim(player_name)) between 1 and 16),
-  stage_id text not null check (stage_id in ('stage_1', 'stage_2', 'stage_3')),
+  stage_id text not null check (stage_id in ('stage_1', 'stage_2', 'stage_3', 'stage_random', 'stage_impromptu')),
   stage_name text not null check (char_length(stage_name) between 1 and 40),
   is_daily boolean not null default false,
   daily_date text check (daily_date is null or daily_date ~ '^\d{4}-\d{2}-\d{2}$'),
@@ -54,7 +54,7 @@ create policy "rankings_insert_public"
   to anon, authenticated
   with check (
     char_length(btrim(player_name)) between 1 and 16
-    and stage_id in ('stage_1', 'stage_2', 'stage_3')
+    and stage_id in ('stage_1', 'stage_2', 'stage_3', 'stage_random', 'stage_impromptu')
     and char_length(stage_name) between 1 and 40
     and reached_floor between 1 and 9999
     and max_damage >= 0
