@@ -9,9 +9,11 @@ import {
   Check,
   Info,
   Loader2,
+  Pencil,
   Pickaxe,
   Plus,
   Sparkles,
+  UserCheck,
   X,
 } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
@@ -34,7 +36,7 @@ import {
 } from "@/types/game";
 
 export default function SummonHallPage() {
-  const { save, hydrated, setSave, openTutorial } = useSaveData();
+  const { save, hydrated, setSave, openTutorial, openAccountModal } = useSaveData();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -122,6 +124,20 @@ export default function SummonHallPage() {
             <p className="mt-1 text-xs leading-relaxed text-[#CFC8B8]">
               日記・メモ・企画書などの文章から語彙カードを採掘し、迷宮へ持ち込む「マイ辞書」を鍛え上げよ。
             </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={openAccountModal}
+                className="inline-flex items-center gap-1.5 border border-[#5A4722] bg-[#16130E] px-2.5 py-1 font-mono text-[11px] text-[#E3B94E] transition-colors hover:border-[#D4AF37] hover:bg-[#261E0E]"
+              >
+                <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                <span>召喚士：{hydrated ? save.guestName : "読込中"}</span>
+                <span className="inline-flex items-center gap-0.5 border-l border-[#3A332A] pl-1.5 text-[10px] text-[#CFC8B8]">
+                  <Pencil className="h-2.5 w-2.5" />
+                  <span>名前変更</span>
+                </span>
+              </button>
+            </div>
           </div>
           <Link
             href="/dungeon"

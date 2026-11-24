@@ -707,6 +707,38 @@ export const MINING_SAMPLE_TEXTS: { label: string; text: string }[] = [
   },
 ];
 
+const SPLIT_PRONE_MASTER_TERMS = new Set([
+  "冷やり",
+  "えっと",
+  "ぶっちゃけ",
+  "てきとう",
+  "うざい",
+  "抜本的",
+  "連撃",
+  "臨界点",
+  "蓋棺",
+  "アポリア",
+  "モノリス",
+]);
+
+function mapPosToJapanese(pos: PosCategory): string {
+  switch (pos) {
+    case "noun":
+    case "idiom":
+      return "名詞";
+    case "verb":
+      return "動詞";
+    case "adj":
+      return "形容詞";
+    case "adv":
+      return "副詞";
+    case "conj":
+      return "接続詞";
+    default:
+      return "感動詞";
+  }
+}
+
 export async function analyzeTextForPack(
   text: string,
   maxPackCards = 6
@@ -756,8 +788,52 @@ export async function analyzeTextForPack(
   for (let i = 0; i < tokens.length; i++) {
     const tk = tokens[i];
 
-    // Try merging 2..4 consecutive tokens if SudachiDict recognizes the compound / modern word
+    // First, try merging 2..5 consecutive tokens if they form an exact curated master word (e.g. 冷やり, えっと, 背水之陣, 抜本的)
     let mergedLen = 0;
+    if (tk.pos !== "記号") {
+      for (let len = Math.min(5, tokens.length - i); len >= 2; len--) {
+        const slice = tokens.slice(i, i + len);
+        if (slice.some((s) => s.pos === "記号")) continue;
+        const last = slice[slice.length - 1];
+        const joinedSurface = slice.map((s) => s.surface_form).join("");
+        const lastBase =
+          last.basic_form && last.basic_form !== "*"
+            ? last.basic_form
+            : last.surface_form;
+        const joinedBase =
+          slice
+            .slice(0, -1)
+            .map((s) => s.surface_form)
+            .join("") + lastBase;
+
+        const masterMatch =
+          getWordMaster(joinedBase) ?? getWordMaster(joinedSurface);
+        if (masterMatch && masterMatch.term.length >= 2) {
+          const sEntry = sudachi.get(masterMatch.term);
+          addExtractedWord(
+            masterMatch.term,
+            {
+              surface_form: joinedSurface,
+              pos: mapPosToJapanese(masterMatch.pos),
+              pos_detail_1: "一般",
+              basic_form: masterMatch.term,
+              reading: masterMatch.reading,
+              word_type: "KNOWN",
+            },
+            joinedSurface,
+            sEntry
+          );
+          mergedLen = len;
+          break;
+        }
+      }
+    }
+    if (mergedLen > 0) {
+      i += mergedLen - 1;
+      continue;
+    }
+
+    // Next, try merging 2..4 consecutive tokens if SudachiDict recognizes the compound / modern word
     if (
       sudachi.size > 0 &&
       compoundStartPos.has(tk.pos) &&
@@ -831,19 +907,20 @@ export async function analyzeTextForPack(
     addExtractedWord(base, normalizedToken, tk.surface_form, sEntry);
   }
 
-  // Also detect curated idioms and maniac multi-morpheme terms that kuromoji might split
+  // Also detect curated idioms, split-prone terms, and maniac multi-morpheme terms that kuromoji might split or fuse with particles
   for (const master of WORD_MASTER_LIST) {
     if (
       (master.pos === "idiom" ||
         master.themePack === "maniac_pack" ||
-        master.themePack === "taboo_combo_pack") &&
+        master.themePack === "taboo_combo_pack" ||
+        SPLIT_PRONE_MASTER_TERMS.has(master.term)) &&
       trimmed.includes(master.term)
     ) {
       if (!countMap.has(master.term)) {
         countMap.set(master.term, {
           token: {
             surface_form: master.term,
-            pos: "名詞",
+            pos: mapPosToJapanese(master.pos),
             pos_detail_1: "一般",
             basic_form: master.term,
             reading: master.reading,
