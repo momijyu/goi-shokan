@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,7 +26,11 @@ import {
   Zap,
 } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
-import { PixelMonster } from "@/components/PixelMonster";
+import {
+  AnimatedEnemySprite,
+  PlayerStripOverlay,
+  type CombatVisualEffect,
+} from "@/components/BattleStageEffects";
 import { WordCard } from "@/components/WordCard";
 import {
   Dialog,
@@ -284,11 +288,61 @@ export default function DungeonPage() {
   const [impromptuLoading, setImpromptuLoading] = useState(false);
   const [impromptuError, setImpromptuError] = useState<string | null>(null);
   const [lobbyTab, setLobbyTab] = useState<"standard" | "special">("standard");
+  const [combatFx, setCombatFx] = useState<CombatVisualEffect | null>(null);
+  const [pendingVictoryRun, setPendingVictoryRun] = useState<RunState | null>(null);
+  const fxCounterRef = useRef(0);
+  const enemyMotionCounterRef = useRef(0);
+  const victoryTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setMobileBattleFullscreen(Boolean(run));
     return () => setMobileBattleFullscreen(false);
   }, [run, setMobileBattleFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (victoryTimerRef.current !== null) {
+        window.clearTimeout(victoryTimerRef.current);
+      }
+    };
+  }, []);
+
+  const clearVictoryTransition = () => {
+    if (victoryTimerRef.current !== null) {
+      window.clearTimeout(victoryTimerRef.current);
+      victoryTimerRef.current = null;
+    }
+    setPendingVictoryRun(null);
+  };
+
+  const flushPendingVictory = () => {
+    if (victoryTimerRef.current !== null) {
+      window.clearTimeout(victoryTimerRef.current);
+      victoryTimerRef.current = null;
+    }
+    if (pendingVictoryRun) {
+      setRun(pendingVictoryRun);
+      setPendingVictoryRun(null);
+    }
+  };
+
+  const emitCombatFx = (fx: Omit<CombatVisualEffect, "id" | "floor" | "enemyMotionId">) => {
+    fxCounterRef.current += 1;
+    if (
+      fx.kind === "attack" ||
+      fx.kind === "pierce" ||
+      fx.kind === "enemy_attack" ||
+      fx.kind === "enemy_blocked"
+    ) {
+      enemyMotionCounterRef.current += 1;
+    }
+    setCombatFx({
+      ...fx,
+      id: fxCounterRef.current,
+      enemyMotionId: enemyMotionCounterRef.current,
+      floor: run?.floor,
+    });
+  };
 
   const finalizeRunRecord = (finalRun: RunState, cleared: boolean) => {
     const hadWhite = finalRun.relicIds.some((id) => id.startsWith("white_revelation"));
@@ -332,6 +386,8 @@ export default function DungeonPage() {
     isDaily: boolean,
     options?: StartRunOptions
   ) => {
+    clearVictoryTransition();
+    setCombatFx(null);
     const newRun = startNewRun(save, stageId, isDaily, options);
     setRun(newRun);
     setSelectedCardId(null);
@@ -362,6 +418,8 @@ export default function DungeonPage() {
       }
       const applied = applyMiningPackToSave(save, summary.packCards, trimmed);
       setSave(applied.next);
+      clearVictoryTransition();
+      setCombatFx(null);
       const newRun = startNewRun(applied.next, "stage_impromptu", false, {
         mode: "impromptu",
         impromptuEntries: summary.packCards.map((c) => c.entry),
@@ -379,22 +437,138 @@ export default function DungeonPage() {
 
   const handlePlayCommand = (role: CommandRole) => {
     if (!run || !selectedCardId) return;
+    if (pendingVictoryRun) {
+      flushPendingVictory();
+      return;
+    }
+    const playedCard =
+      run.hand.find((c) => c.instanceId === selectedCardId) ?? null;
     const nextRun = playCardFromHand(run, selectedCardId, role, save);
-    setRun(nextRun);
+    if (nextRun === run) return;
+
+    const out = nextRun.lastOutput;
+    const isLethal = nextRun.phase !== "battle" && nextRun.enemyHp <= 0;
+
+    if (out && (out.role === "attack" || out.didDamage)) {
+      const fmt = formatJapaneseNumber(out.finalOutput);
+      const isPierce = Boolean(
+        playedCard &&
+          ((playedCard.attribute === "logic" &&
+            (playedCard.rank === "SSR" || playedCard.rank === "UR")) ||
+            (out.role === "skill" && playedCard.skillType === "pierce_burst"))
+      );
+      const subLabel = isPierce
+        ? out.retriggers > 1
+          ? `貫通・${out.retriggers}連!`
+          : "貫通!"
+        : out.retriggers > 1
+          ? `${out.retriggers}連撃!`
+          : undefined;
+      emitCombatFx({
+        kind: isPierce ? "pierce" : "attack",
+        amountText: fmt.text,
+        subLabel,
+        colorClass: fmt.colorClass,
+        shakeLevel: fmt.shakeLevel,
+        retriggers: out.retriggers,
+        attribute: playedCard?.attribute,
+        isLethal,
+      });
+    } else if (out && (out.role === "guard" || out.didShield)) {
+      const fmt = formatJapaneseNumber(out.finalOutput);
+      emitCombatFx({
+        kind: "guard",
+        amountText: fmt.text,
+        colorClass: "text-[#69A3D9]",
+        shakeLevel: 0,
+        retriggers: out.retriggers,
+        attribute: playedCard?.attribute,
+      });
+    } else if (out) {
+      emitCombatFx({
+        kind: "skill",
+        amountText: `${out.cardTerm} 発動`,
+        colorClass: "text-[#E3B94E]",
+        shakeLevel: 0,
+        retriggers: out.retriggers,
+        attribute: playedCard?.attribute,
+      });
+    }
+
     setSelectedCardId(null);
+
+    if (isLethal) {
+      setRun({
+        ...run,
+        enemyHp: 0,
+        enemyShield: 0,
+        lastOutput: nextRun.lastOutput,
+        cardsPlayedThisTurn: nextRun.cardsPlayedThisTurn,
+        logs: nextRun.logs,
+      });
+      setPendingVictoryRun(nextRun);
+      victoryTimerRef.current = window.setTimeout(() => {
+        victoryTimerRef.current = null;
+        setPendingVictoryRun(null);
+        setRun(nextRun);
+      }, 560);
+      return;
+    }
+
+    setRun(nextRun);
   };
 
   const handleEndTurn = () => {
     if (!run) return;
+    if (pendingVictoryRun) {
+      flushPendingVictory();
+      return;
+    }
+    const prevIntent = getEnemyCurrentIntent(run);
     const nextRun = endPlayerTurn(run);
     if (nextRun.phase === "gameover") {
       finalizeRunRecord(nextRun, nextRun.isEndless);
+      setRun(nextRun);
+      setSelectedCardId(null);
+      return;
     }
+
+    if (prevIntent.type === "attack" || prevIntent.type === "heavy_attack") {
+      const dmgTaken = Math.max(0, prevIntent.value - run.playerShield);
+      if (dmgTaken > 0) {
+        emitCombatFx({
+          kind: "enemy_attack",
+          amountText: formatJapaneseNumber(dmgTaken).text,
+          colorClass: "text-[#F7B5AD]",
+          shakeLevel: prevIntent.type === "heavy_attack" ? 2 : 1,
+          retriggers: 1,
+        });
+      } else {
+        emitCombatFx({
+          kind: "enemy_blocked",
+          amountText: "完全防御",
+          colorClass: "text-[#89CFF0]",
+          shakeLevel: 0,
+          retriggers: 1,
+        });
+      }
+    } else if (prevIntent.type === "defend") {
+      emitCombatFx({
+        kind: "enemy_guard",
+        amountText: `盾+${formatJapaneseNumber(prevIntent.value).text}`,
+        colorClass: "text-[#69A3D9]",
+        shakeLevel: 0,
+        retriggers: 1,
+      });
+    }
+
     setRun(nextRun);
     setSelectedCardId(null);
   };
 
   const handleRetireRun = () => {
+    clearVictoryTransition();
+    setCombatFx(null);
     if (run && run.maxDamageDealt > 0) {
       finalizeRunRecord(run, run.isEndless);
     }
@@ -871,6 +1045,10 @@ export default function DungeonPage() {
   const hasOverclock = run.relicIds.includes("overclock");
   const isChokerCapped =
     run.relicIds.includes("black_pact_choker") && run.cardsPlayedThisTurn >= 6;
+  const activeCombatFx =
+    combatFx && (combatFx.floor === undefined || combatFx.floor === run.floor)
+      ? combatFx
+      : null;
 
   return (
     <div
@@ -1162,7 +1340,20 @@ export default function DungeonPage() {
           <>
             <div className="space-y-1.5 lg:space-y-3">
               {/* Mobile Compact Enemy Stage (Fits 1 screen without vertical scroll) */}
-              <div className="kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden">
+              <motion.div
+                onClick={pendingVictoryRun ? flushPendingVictory : undefined}
+                animate={
+                  activeCombatFx &&
+                  (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                  (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal)
+                    ? { x: [0, -4, 4, -2, 2, 0], y: [0, 2, -2, 0] }
+                    : { x: 0, y: 0 }
+                }
+                transition={{ duration: 0.32 }}
+                className={`kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden ${
+                  pendingVictoryRun ? "cursor-pointer" : ""
+                }`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <div className="inline-flex items-center gap-1 border border-[#5C3530] bg-[#241212] px-1.5 py-0.5 font-mono text-[10px] text-[#E05A47]">
                     <AlertOctagon className="h-3 w-3 shrink-0" />
@@ -1177,23 +1368,16 @@ export default function DungeonPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    key={`mob_${run.enemy.id}_${run.enemyHp}`}
-                    animate={
-                      lastFmt && lastFmt.shakeLevel >= 2
-                        ? { x: [0, -5, 5, -3, 3, 0] }
-                        : { y: [0, -2, 0] }
-                    }
-                    transition={{ duration: 0.35 }}
-                    className="shrink-0"
-                  >
-                    <PixelMonster
+                  <div className="shrink-0">
+                    <AnimatedEnemySprite
                       spriteId={run.enemy.spriteId}
                       attribute={run.enemy.attribute}
                       size={60}
                       isBoss={run.enemy.isBoss}
+                      effect={activeCombatFx}
+                      compact
                     />
-                  </motion.div>
+                  </div>
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <h2 className="truncate font-serif text-base font-extrabold text-[#F2ECE0]">
@@ -1263,10 +1447,23 @@ export default function DungeonPage() {
                     )}
                   </AnimatePresence>
                 </div>
-              </div>
+              </motion.div>
 
               {/* PC Enemy Stage (Unchanged desktop layout) */}
-              <div className="kaku-frame stage-grid hidden flex-col items-center p-4 lg:flex">
+              <motion.div
+                onClick={pendingVictoryRun ? flushPendingVictory : undefined}
+                animate={
+                  activeCombatFx &&
+                  (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                  (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal)
+                    ? { x: [0, -5, 5, -3, 3, 0], y: [0, 2, -2, 0] }
+                    : { x: 0, y: 0 }
+                }
+                transition={{ duration: 0.34 }}
+                className={`kaku-frame stage-grid hidden flex-col items-center p-4 lg:flex ${
+                  pendingVictoryRun ? "cursor-pointer" : ""
+                }`}
+              >
                 {/* Enemy Next Intent */}
                 <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
                   <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
@@ -1274,23 +1471,15 @@ export default function DungeonPage() {
                 </div>
 
                 {/* Pixel Sprite */}
-                <motion.div
-                  key={`${run.enemy.id}_${run.enemyHp}`}
-                  animate={
-                    lastFmt && lastFmt.shakeLevel >= 2
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : { y: [0, -3, 0] }
-                  }
-                  transition={{ duration: 0.35 }}
-                  className="my-2"
-                >
-                  <PixelMonster
+                <div className="my-2">
+                  <AnimatedEnemySprite
                     spriteId={run.enemy.spriteId}
                     attribute={run.enemy.attribute}
                     size={104}
                     isBoss={run.enemy.isBoss}
+                    effect={activeCombatFx}
                   />
-                </motion.div>
+                </div>
 
                 <div className="text-center">
                   <span
@@ -1365,10 +1554,11 @@ export default function DungeonPage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+              </motion.div>
 
               {/* Player Status Strip */}
-              <div className="grid grid-cols-3 gap-2 border border-[#2E2822] bg-[#121016] p-2 font-mono text-xs lg:p-2.5">
+              <div className="relative grid grid-cols-3 gap-2 border border-[#2E2822] bg-[#121016] p-2 font-mono text-xs lg:p-2.5">
+                <PlayerStripOverlay effect={activeCombatFx} />
                 <div>
                   <span className="flex items-center gap-1 text-[10px] text-[#968E7E]">
                     <Heart className="h-3 w-3 text-[#C93A2B]" />
@@ -1581,6 +1771,7 @@ export default function DungeonPage() {
                   const guardLocked =
                     cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
                   const affordable =
+                    !pendingVictoryRun &&
                     !guardLocked &&
                     !isChokerCapped &&
                     Boolean(selectedCard) &&
@@ -1740,8 +1931,9 @@ export default function DungeonPage() {
                 </div>
                 <button
                   type="button"
+                  disabled={Boolean(pendingVictoryRun)}
                   onClick={handleEndTurn}
-                  className="border border-[#8A7348] bg-[#1A1620] px-5 py-2 font-serif text-xs font-bold tracking-wider text-[#ECE6D8] hover:border-[#D4AF37] hover:bg-[#272130]"
+                  className="border border-[#8A7348] bg-[#1A1620] px-5 py-2 font-serif text-xs font-bold tracking-wider text-[#ECE6D8] hover:border-[#D4AF37] hover:bg-[#272130] disabled:opacity-50"
                 >
                   ターン終了
                 </button>
