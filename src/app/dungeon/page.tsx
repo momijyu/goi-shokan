@@ -57,6 +57,7 @@ import {
   getEnemyCurrentIntent,
   getPostFloorEvent,
   getRelicLabels,
+  isEnglishCardTerm,
   playCardFromHand,
   proceedNextBattleFloor,
   RANDOM_STYLE_META,
@@ -346,7 +347,11 @@ export default function DungeonPage() {
 
   const finalizeRunRecord = (finalRun: RunState, cleared: boolean) => {
     const hadWhite = finalRun.relicIds.some((id) => id.startsWith("white_revelation"));
+    const hadBlack = finalRun.relicIds.some((id) => id.startsWith("black_pact_"));
     const hadF = finalRun.deck.some((c) => c.rank === "F");
+    const englishCardCount = finalRun.deck.filter((c) =>
+      isEnglishCardTerm(c.term)
+    ).length;
     const nextSave = recordRunResultInSave(save, {
       history: {
         id: finalRun.runId,
@@ -362,7 +367,10 @@ export default function DungeonPage() {
       discoveredRelics: finalRun.relicIds,
       encounteredEnemies: finalRun.encounteredEnemyIds,
       hadWhiteRevelation: hadWhite,
+      hadBlackCovenant: hadBlack,
       hadFCardInDeck: hadF,
+      englishCardCount,
+      deckSize: finalRun.deck.length,
     });
     setSave(nextSave);
     if (finalRun.maxDamageDealt > 0) {

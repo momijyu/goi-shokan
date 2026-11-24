@@ -266,11 +266,14 @@ export interface ThemePackDef {
   terms: string[];
 }
 
+export type AchievementCategory = "collection" | "relic" | "damage" | "dungeon";
+
 export interface AchievementDef {
   id: string;
   title: string;
   description: string;
   badgeKanji: string;
+  category: AchievementCategory;
 }
 
 export interface RunHistoryEntry {

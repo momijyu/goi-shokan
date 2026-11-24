@@ -153,7 +153,7 @@ export function loadSaveData(): PlayerSaveData {
         ? parsed.activePresetId
         : null;
 
-    return {
+    const merged: PlayerSaveData = {
       ...defaults,
       ...parsed,
       bestDamage: typeof parsed.bestDamage === "number" ? parsed.bestDamage : 0,
@@ -167,6 +167,8 @@ export function loadSaveData(): PlayerSaveData {
       activePresetId: safeActivePresetId,
       recentTextHashes: parsed.recentTextHashes ?? [],
     };
+    merged.unlockedAchievements = checkCollectionAchievements(merged);
+    return merged;
   } catch {
     return createInitialSaveData();
   }
@@ -187,18 +189,60 @@ export function saveSaveData(data: PlayerSaveData): void {
 export function checkCollectionAchievements(data: PlayerSaveData): string[] {
   const unlocked = new Set(data.unlockedAchievements);
   const ownedCount = Object.keys(data.ownedWords).length;
+  const urCount = Object.values(data.ownedWords).filter(
+    (w) => w.rank === "UR"
+  ).length;
 
+  // Collection & excavation milestones
   if (data.totalSummons >= 1) unlocked.add("first_summon");
+  if (data.totalSummons >= 10) unlocked.add("summon_10");
+  if (data.totalSummons >= 30) unlocked.add("summon_30");
   if (ownedCount >= 30) unlocked.add("collect_30");
   if (ownedCount >= 60) unlocked.add("collect_60");
+  if (ownedCount >= 100) unlocked.add("collect_100");
+  if (ownedCount >= 150) unlocked.add("collect_150");
+  if (urCount >= 1) unlocked.add("discover_ur");
+  if (urCount >= 5) unlocked.add("discover_ur_5");
 
-  const hasUR = Object.values(data.ownedWords).some((w) => w.rank === "UR");
-  if (hasUR) unlocked.add("discover_ur");
+  const completedPacks = THEME_PACKS.filter((pack) =>
+    pack.terms.every((t) => Boolean(data.ownedWords[t]))
+  ).length;
+  if (completedPacks >= 1) unlocked.add("pack_complete");
+  if (completedPacks >= 3) unlocked.add("pack_complete_3");
 
-  for (const pack of THEME_PACKS) {
-    if (pack.terms.every((t) => Boolean(data.ownedWords[t]))) {
-      unlocked.add("pack_complete");
-      break;
+  // Relic discovery milestones
+  const relicCount = data.discoveredRelics.length;
+  if (relicCount >= 15) unlocked.add("relic_15");
+  if (relicCount >= 40) unlocked.add("relic_40");
+  if (relicCount >= 70) unlocked.add("relic_all_70");
+
+  // Output milestones (backfill from bestDamage)
+  if (data.bestDamage >= 10_000) unlocked.add("dmg_man");
+  if (data.bestDamage >= 100_000_000) unlocked.add("dmg_oku");
+  if (data.bestDamage >= 1_000_000_000_000) unlocked.add("dmg_cho");
+  if (data.bestDamage >= 1e16) unlocked.add("dmg_kei");
+  if (data.bestDamage >= 1e20) unlocked.add("dmg_gai");
+  if (data.bestDamage >= 1e68) unlocked.add("dmg_muryo");
+
+  // Stage & Endless milestones (backfill from clearedStages & runHistories)
+  if (data.clearedStages.includes("stage_1")) unlocked.add("clear_stage_1");
+  if (data.clearedStages.includes("stage_2")) unlocked.add("clear_stage_2");
+  if (data.clearedStages.includes("stage_3")) unlocked.add("clear_stage_3");
+  if (data.clearedStages.includes("stage_random")) unlocked.add("clear_random");
+  if (data.clearedStages.includes("stage_impromptu")) {
+    unlocked.add("clear_impromptu");
+  }
+
+  for (const h of data.runHistories) {
+    if (h.cleared && h.isDaily) unlocked.add("daily_clear");
+    if (h.reachedFloor >= 20) unlocked.add("endless_20");
+    if (h.reachedFloor >= 50) unlocked.add("endless_50");
+    if (h.reachedFloor >= 100) unlocked.add("endless_100");
+    if (h.relicIds.some((id) => id.startsWith("white_revelation"))) {
+      unlocked.add("white_revelation");
+    }
+    if (h.relicIds.some((id) => id.startsWith("black_pact_"))) {
+      unlocked.add("black_covenant");
     }
   }
 
@@ -400,19 +444,46 @@ export function recordRunResultInSave(
     discoveredRelics: string[];
     encounteredEnemies: string[];
     hadWhiteRevelation: boolean;
+    hadBlackCovenant?: boolean;
     hadFCardInDeck: boolean;
+    englishCardCount?: number;
+    deckSize?: number;
   }
 ): PlayerSaveData {
   const unlocked = new Set(current.unlockedAchievements);
-  const { history, hadWhiteRevelation, hadFCardInDeck } = params;
+  const {
+    history,
+    hadWhiteRevelation,
+    hadBlackCovenant = false,
+    hadFCardInDeck,
+    englishCardCount = 0,
+    deckSize = 99,
+  } = params;
 
   if (history.maxDamage >= 10_000) unlocked.add("dmg_man");
   if (history.maxDamage >= 100_000_000) unlocked.add("dmg_oku");
   if (history.maxDamage >= 1_000_000_000_000) unlocked.add("dmg_cho");
+  if (history.maxDamage >= 1e16) unlocked.add("dmg_kei");
+  if (history.maxDamage >= 1e20) unlocked.add("dmg_gai");
+  if (history.maxDamage >= 1e68) unlocked.add("dmg_muryo");
   if (hadWhiteRevelation) unlocked.add("white_revelation");
+  if (hadBlackCovenant) unlocked.add("black_covenant");
   if (history.cleared && history.stageId === "stage_1") unlocked.add("clear_stage_1");
+  if (history.cleared && history.stageId === "stage_2") unlocked.add("clear_stage_2");
   if (history.cleared && history.stageId === "stage_3") unlocked.add("clear_stage_3");
+  if (history.cleared && history.stageId === "stage_random") {
+    unlocked.add("clear_random");
+  }
+  if (history.cleared && history.stageId === "stage_impromptu") {
+    unlocked.add("clear_impromptu");
+  }
+  if (history.cleared && history.isDaily) unlocked.add("daily_clear");
+  if (history.reachedFloor >= 20) unlocked.add("endless_20");
+  if (history.reachedFloor >= 50) unlocked.add("endless_50");
+  if (history.reachedFloor >= 100) unlocked.add("endless_100");
   if (history.cleared && hadFCardInDeck) unlocked.add("f_build_win");
+  if (history.cleared && englishCardCount >= 3) unlocked.add("english_deck_win");
+  if (history.cleared && deckSize <= 8) unlocked.add("minimalist_win");
 
   const clearedStages = history.cleared
     ? Array.from(new Set([...current.clearedStages, history.stageId]))
