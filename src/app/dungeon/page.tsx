@@ -121,10 +121,10 @@ function buildDungeonRouteNodes(run: RunState): RouteNodeItem[] {
           ? "主"
           : `${f}戦`,
       title: run.isEndless
-        ? `無間${f - run.totalStageFloors}（通算 第${f}階）${isBoss ? " ボス" : ""}`
+        ? `無間${f - run.totalStageFloors}（通算 第${f}階）${isBoss ? " ボス・遺物ドロップ" : ""}`
         : isBoss
           ? `第${f}階 ボス`
-          : `第${f}階 戦闘`,
+          : `第${f}階 戦闘（遺物ドロップ）`,
       status: battleStatus,
     });
 
@@ -215,10 +215,22 @@ function renderRunMultiplierRows(run: RunState) {
         <span className="text-[#968E7E]">次札乗算</span>
         <span className="text-[#57B889]">×{run.nextCardMult.toFixed(2)}</span>
       </div>
-      <div className="flex justify-between">
-        <span className="text-[#968E7E]">指数（べき乗）</span>
-        <span className="font-bold text-[#E05A47]">^{run.battleExponent}</span>
-      </div>
+      {run.permanentBaseMult > 1 && (
+        <div className="flex justify-between">
+          <span className="text-[#968E7E]">永続基礎倍率</span>
+          <span className="font-bold text-[#E88A38]">
+            ×{formatJapaneseNumber(run.permanentBaseMult).text}
+          </span>
+        </div>
+      )}
+      {run.battleGuardMult > 1 && (
+        <div className="flex justify-between">
+          <span className="text-[#968E7E]">戦闘防御倍率</span>
+          <span className="font-bold text-[#5B9BD5]">
+            ×{run.battleGuardMult.toFixed(2)}
+          </span>
+        </div>
+      )}
       <div className="flex justify-between">
         <span className="text-[#968E7E]">永続基礎値</span>
         <span className="font-bold text-[#9BD1B5]">
@@ -857,6 +869,8 @@ export default function DungeonPage() {
   const enemyHpPct = Math.max(0, Math.min(100, (run.enemyHp / run.enemy.maxHp) * 100));
   const playerHpPct = Math.max(0, Math.min(100, (run.playerHp / run.playerMaxHp) * 100));
   const hasOverclock = run.relicIds.includes("overclock");
+  const isChokerCapped =
+    run.relicIds.includes("black_pact_choker") && run.cardsPlayedThisTurn >= 6;
 
   return (
     <div
@@ -1335,9 +1349,6 @@ export default function DungeonPage() {
                             : "スキル"}
                         ）： 基礎{run.lastOutput.baseOutput} × 倍率
                         {formatJapaneseNumber(run.lastOutput.multiplier).text}
-                        {run.lastOutput.exponent > 1
-                          ? ` ^${run.lastOutput.exponent}`
-                          : ""}
                         {run.lastOutput.retriggers > 1
                           ? ` ／ ${run.lastOutput.retriggers}連発動`
                           : ""}
@@ -1409,10 +1420,10 @@ export default function DungeonPage() {
                     次札 <strong className="text-[#57B889]">×{run.nextCardMult.toFixed(2)}</strong>
                   </span>
                   <span className="text-[#968E7E]">
-                    指数 <strong className="text-[#E05A47]">^{run.battleExponent}</strong>
+                    永続 <strong className="text-[#69A3D9]">×{formatJapaneseNumber(run.tengenPermanentMult * run.permanentMultBonus).text}</strong>
                   </span>
                   <span className="text-[#968E7E]">
-                    永続 <strong className="text-[#9BD1B5]">+{formatJapaneseNumber(run.permanentFlatAdd).text}</strong>
+                    永続基礎 <strong className="text-[#9BD1B5]">+{formatJapaneseNumber(run.permanentFlatAdd).text}</strong>
                   </span>
                 </div>
                 <span className="shrink-0 text-[10px] text-[#8A7348]">詳細 ›</span>
@@ -1420,14 +1431,27 @@ export default function DungeonPage() {
 
               {(run.cardsPlayedThisTurn >= 1 ||
                 run.highRankCostDiscountThisTurn > 0 ||
-                run.allCardCostDiscountThisTurn > 0 ||
+                run.englishCostDiscountThisTurn > 0 ||
+                run.nextCardCostDiscountThisTurn > 0 ||
                 run.nextCardRetrigger > 0 ||
                 run.nextAttackMult > 1 ||
                 run.nextAttackFlatAdd > 0 ||
                 run.nextFInverted ||
                 run.pendingSelfHarmPctAfterAttack > 0 ||
-                run.selfHarmCountInBattle > 0) && (
+                run.selfHarmCountInBattle > 0 ||
+                run.penNibReady ||
+                run.relicIds.includes("black_pact_choker")) && (
                 <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 font-mono text-[10px] lg:flex-wrap lg:overflow-visible lg:whitespace-normal">
+                  {run.relicIds.includes("black_pact_choker") && (
+                    <span className="shrink-0 border border-[#C93A2B] bg-[#261314] px-2 py-0.5 font-bold text-[#F08A7E]">
+                      拘束の首輪：{run.cardsPlayedThisTurn}/6枚
+                    </span>
+                  )}
+                  {run.penNibReady && (
+                    <span className="shrink-0 border border-[#D4AF37] bg-[#261E0E] px-2 py-0.5 font-bold text-[#F4D06F]">
+                      万年筆待機：次攻撃 ×2.5＋再発動+1
+                    </span>
+                  )}
                   {run.cardsPlayedThisTurn >= 1 && (
                     <span className="shrink-0 border border-[#2E2822] bg-[#121016] px-2 py-0.5 text-[#CFC8B8]">
                       このターン発動：{run.cardsPlayedThisTurn}枚目
@@ -1466,9 +1490,14 @@ export default function DungeonPage() {
                       自傷 {run.selfHarmCountInBattle}回 / 累計-{run.selfHarmHpTotalInBattle}HP
                     </span>
                   )}
-                  {run.allCardCostDiscountThisTurn > 0 && (
+                  {run.englishCostDiscountThisTurn > 0 && (
                     <span className="shrink-0 border border-[#9B7EDE] bg-[#1E172E] px-2 py-0.5 text-[#C5B3F2]">
-                      今ターン全札コスト -{run.allCardCostDiscountThisTurn}
+                      今ターン英語コスト -{run.englishCostDiscountThisTurn}
+                    </span>
+                  )}
+                  {run.nextCardCostDiscountThisTurn > 0 && (
+                    <span className="shrink-0 border border-[#4FA8D6] bg-[#101C26] px-2 py-0.5 text-[#89CFF0]">
+                      次の1枚コスト -{run.nextCardCostDiscountThisTurn}
                     </span>
                   )}
                   {run.highRankCostDiscountThisTurn > 0 && (
@@ -1553,6 +1582,7 @@ export default function DungeonPage() {
                     cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
                   const affordable =
                     !guardLocked &&
+                    !isChokerCapped &&
                     Boolean(selectedCard) &&
                     (run.energy >= cost || hasOverclock);
                   const bonusTag =
@@ -1613,7 +1643,7 @@ export default function DungeonPage() {
                   >
                     {run.hand.map((card, idx) => {
                       const cost = getEffectiveCardCost(run, card);
-                      const canAfford = run.energy >= cost || hasOverclock;
+                      const canAfford = !isChokerCapped && (run.energy >= cost || hasOverclock);
                       const isSelected = selectedCardId === card.instanceId;
                       return (
                         <motion.div
@@ -1663,7 +1693,7 @@ export default function DungeonPage() {
               <div className="hidden gap-2 lg:grid lg:grid-cols-5">
                 {run.hand.map((card) => {
                   const cost = getEffectiveCardCost(run, card);
-                  const canAfford = run.energy >= cost || hasOverclock;
+                  const canAfford = !isChokerCapped && (run.energy >= cost || hasOverclock);
                   return (
                     <WordCard
                       key={card.instanceId}
@@ -1881,8 +1911,8 @@ export default function DungeonPage() {
                 className="w-full border border-[#3A332A] bg-[#0B0A0E] py-2 font-mono text-[11px] text-[#968E7E] hover:text-[#ECE6D8] sm:text-xs"
               >
                 {run.relicIds.includes("black_pact_ascetic")
-                  ? "見送る（禁欲の代償：永続乗算 ×1.4 ＆ 永続基礎 +150）"
-                  : "見送る（デッキを薄く保ち HP+6 回復）"}
+                  ? `見送る（禁欲の代償：永続乗算 ×1.45 ＆ 最大HP +10%${run.relicIds.includes("singing_chalice") ? " ＋ 聖杯：最大HP+10%＆×1.22" : ""}）`
+                  : `見送る（デッキを薄く保ち HP+${run.relicIds.includes("blood_meat_relic") ? 9 : 6} 回復${run.relicIds.includes("singing_chalice") ? " ＋ 聖杯：最大HP+10%＆×1.22" : ""}）`}
               </button>
             </div>
           );
@@ -1893,10 +1923,12 @@ export default function DungeonPage() {
           <div className="kaku-frame space-y-2.5 p-3 lg:space-y-4 lg:p-5">
             <div>
               <p className="hidden font-mono text-[10px] text-[#E3B94E] lg:block">
-                RELIC SELECTION
+                {run.isEndless ? "ENDLESS BOSS RELIC" : "RELIC SELECTION"}
               </p>
               <h2 className="font-serif text-lg font-extrabold text-[#F2ECE0] lg:text-xl">
-                遺物（レリック）を1つ選択
+                {run.isEndless
+                  ? "無間の主 撃破報酬：遺物（レリック）を1つ選択"
+                  : "遺物（レリック）を1つ選択"}
               </h2>
             </div>
             <div className="space-y-2 lg:space-y-2.5">
@@ -1928,7 +1960,7 @@ export default function DungeonPage() {
             >
               {run.relicIds.includes("black_pact_ascetic")
                 ? "受け取らずに見送る（禁欲の代償により回復無効）"
-                : "受け取らずに見送る（HP+8 回復）"}
+                : `受け取らずに見送る（HP+${run.relicIds.includes("blood_meat_relic") ? 12 : 8} 回復）`}
             </button>
           </div>
         )}

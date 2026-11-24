@@ -245,36 +245,36 @@ export function createDeterministicUR(term: string, pos: PosCategory): WordMaste
     ? {
         1: [
           { type: "english_link", power: 0.8 },
-          { type: "english_discount", power: 60 },
+          { type: "english_discount", power: 1.3 },
           { type: "english_purge", power: 1.45 },
         ],
         2: [
           { type: "english_link", power: 1.4 },
-          { type: "english_discount", power: 120 },
+          { type: "english_discount", power: 1.55 },
           { type: "english_purge", power: 1.85 },
         ],
         3: [
           { type: "english_link", power: 2.2 },
-          { type: "english_discount", power: 220 },
+          { type: "english_discount", power: 1.95 },
           { type: "english_purge", power: 2.4 },
         ],
       }
     : {
         1: [
-          { type: "retrigger_next", power: 1 },
-          { type: "mult_next", power: 1.6 },
-          { type: "mult_battle", power: 1.35 },
-          { type: "pierce_burst", power: 1.4 },
+          { type: "mult_next", power: 1.8 },
+          { type: "mult_battle", power: 1.45 },
+          { type: "pierce_burst", power: 1.5 },
+          { type: "draw", power: 2 },
         ],
         2: [
-          { type: "retrigger_next", power: 1 },
-          { type: "mult_next", power: 2.2 },
-          { type: "mult_battle", power: 1.85 },
-          { type: "pierce_burst", power: 1.8 },
+          { type: "mult_next", power: 2.4 },
+          { type: "mult_battle", power: 1.9 },
+          { type: "pierce_burst", power: 1.85 },
+          { type: "cost_amp", power: 1.35 },
         ],
         3: [
-          { type: "retrigger_next", power: 2 },
-          { type: "mult_next", power: 3.2 },
+          { type: "retrigger_next", power: 1 },
+          { type: "mult_next", power: 3.4 },
           { type: "mult_battle", power: 2.6 },
           { type: "pierce_burst", power: 2.4 },
         ],
@@ -511,65 +511,63 @@ export function createProceduralCard(
       ? cost >= 3
         ? [
             { type: "english_link", power: 1.8 },
-            { type: "english_discount", power: 180 },
+            { type: "english_discount", power: 1.85 },
             { type: "english_purge", power: 2.3 },
           ]
         : [
             { type: "english_link", power: 1.3 },
-            { type: "english_discount", power: 120 },
+            { type: "english_discount", power: 1.6 },
             { type: "english_purge", power: 1.95 },
           ]
       : rank === "SR"
         ? cost >= 2
           ? [
               { type: "english_link", power: 1.1 },
-              { type: "english_discount", power: 90 },
+              { type: "english_discount", power: 1.45 },
               { type: "english_purge", power: 1.8 },
             ]
           : [
               { type: "english_link", power: 0.8 },
-              { type: "english_discount", power: 65 },
+              { type: "english_discount", power: 1.35 },
               { type: "english_purge", power: 1.55 },
             ]
         : rank === "R"
           ? [
               { type: "english_link", power: 0.7 },
-              { type: "english_discount", power: 55 },
+              { type: "english_discount", power: 1.25 },
               { type: "english_purge", power: 1.55 },
             ]
           : [
               { type: "english_link", power: 0.4 },
-              { type: "english_discount", power: 30 },
+              { type: "english_discount", power: 1.15 },
               { type: "english_purge", power: 1.35 },
             ]
     : rank === "SSR"
       ? cost >= 3
         ? [
             { type: "mult_battle", power: 2.5 },
-            { type: "retrigger_next", power: 2 },
+            { type: "mult_next", power: 3.4 },
             { type: "pierce_burst", power: 2.3 },
-            { type: "sacrifice_mult", power: 5 },
-            { type: "curse_stack", power: 1.3 },
+            { type: "sacrifice_mult", power: 8 },
+            { type: "curse_stack", power: 1.6 },
           ]
         : [
             { type: "mult_battle", power: 1.95 },
             { type: "mult_next", power: 2.5 },
-            { type: "retrigger_next", power: 1 },
-            { type: "accumulate_cards", power: 1.2 },
-            { type: "moroha_edge", power: 4 },
-            { type: "self_harm_mult", power: 0.25 },
+            { type: "accumulate_cards", power: 1.25 },
+            { type: "moroha_edge", power: 5 },
+            { type: "self_harm_mult", power: 1.2 },
           ]
       : rank === "SR"
         ? cost >= 2
           ? [
               { type: "mult_battle", power: 1.6 },
-              { type: "retrigger_next", power: 1 },
               { type: "pierce_burst", power: 1.65 },
               { type: "skill_chain", power: 1.35 },
-              { type: "cost_amp", power: 1.3 },
-              { type: "mimic_last", power: 0.5 },
-              { type: "pursuit_combo", power: 1 },
-              { type: "vengeance_flat", power: 2 },
+              { type: "cost_amp", power: 1.35 },
+              { type: "mimic_last", power: 0.65 },
+              { type: "pursuit_combo", power: 1.55 },
+              { type: "vengeance_flat", power: 0.5 },
               { type: "f_resonance", power: 1.5 },
             ]
           : [
@@ -584,11 +582,10 @@ export function createProceduralCard(
               { type: "mult_next", power: 1.5 },
               { type: "draw", power: 1 },
               { type: "weaken", power: 25 },
-              { type: "retrigger_next", power: 1 },
-              { type: "desperation_mult", power: 3 },
+              { type: "desperation_mult", power: 5.5 },
               { type: "f_invert", power: 2 },
               { type: "diversity_mult", power: 0.8 },
-              { type: "guard_stock", power: 0.5 },
+              { type: "guard_stock", power: 0.65 },
             ]
           : [
               { type: "draw", power: 1 },
@@ -596,7 +593,7 @@ export function createProceduralCard(
               { type: "mult_next", power: 1.3 },
               { type: "weaken", power: 20 },
               { type: "diversity_mult", power: 0.5 },
-              { type: "guard_stock", power: 0.35 },
+              { type: "guard_stock", power: 0.4 },
             ];
 
   const skill = skillPool[(seed >>> 15) % skillPool.length];

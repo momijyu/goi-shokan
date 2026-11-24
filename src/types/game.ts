@@ -90,22 +90,22 @@ export function formatSkillDescription(
         });
         break;
       case "english_discount":
-        clauses.push({ order: 2, text: "今ターン全札コスト -1" });
-        clauses.push({ order: 5, text: `永続基礎 +${power}` });
+        clauses.push({ order: 2, text: "次の1枚コスト-1 ＋ 全英語札コスト-1" });
+        clauses.push({ order: 6, text: `戦闘倍率 ×${power}` });
         break;
       case "english_purge":
         clauses.push({ order: 3, text: "『不』1枚除外" });
         clauses.push({ order: 6, text: `戦闘倍率 ×${power}` });
         break;
       case "desperation_mult":
-        clauses.push({ order: 7, text: `HP30%以下なら次攻撃 ×${power}` });
+        clauses.push({ order: 7, text: `HP50%以下なら次攻撃 ×${power}` });
         break;
       case "sacrifice_mult":
-        clauses.push({ order: 1, text: "現在HP50%消費(最低HP1)" });
+        clauses.push({ order: 1, text: "現在HP40%消費(最低HP1)＋消費分シールド" });
         clauses.push({ order: 7, text: `次攻撃 ×${power}` });
         break;
       case "vengeance_flat":
-        clauses.push({ order: 7, text: `次攻撃の基礎値 +(自傷HP累計×${power})` });
+        clauses.push({ order: 7, text: `次攻撃倍率 +(自傷HP累計×${power})` });
         break;
       case "f_resonance":
         clauses.push({
@@ -129,7 +129,7 @@ export function formatSkillDescription(
       case "moroha_edge":
         clauses.push({
           order: 7,
-          text: `次攻撃 ×${power}（攻撃後HP10%消費・最低HP1）`,
+          text: `次攻撃 ×${power}（攻撃後HP8%消費・最低HP1）`,
         });
         break;
       case "accumulate_cards":
@@ -170,8 +170,8 @@ export function formatSkillDescription(
         break;
       case "pursuit_combo":
         clauses.push({
-          order: 8,
-          text: `今ターン攻撃1回につき 次攻撃再発動 +${power}`,
+          order: 7,
+          text: `今ターン攻撃1回につき 次攻撃 ×${power}ずつ乗算`,
         });
         break;
       case "self_harm_mult":
@@ -339,11 +339,11 @@ export const SKILL_META: Record<
   pierce_burst: { label: "防御貫通バースト", shortTag: "防御貫通", color: "#E05A47" },
   chaos_curse: { label: "不の暴走", shortTag: "暴走リスク", color: "#A38A78" },
   english_link: { label: "英語共鳴（手札連携）", shortTag: "英語共鳴", color: "#4FA8D6" },
-  english_discount: { label: "英語変換（全コスト軽減）", shortTag: "英語軽減", color: "#9B7EDE" },
+  english_discount: { label: "英語変換（英語＆次札コスト軽減）", shortTag: "英語軽減", color: "#9B7EDE" },
   english_purge: { label: "英語浄化（不の消去）", shortTag: "英語浄化", color: "#5EC2A6" },
-  desperation_mult: { label: "背水強化（HP30%以下）", shortTag: "背水倍化", color: "#E05A47" },
-  sacrifice_mult: { label: "生贄増幅（HP50%消費）", shortTag: "生贄倍化", color: "#C93A2B" },
-  vengeance_flat: { label: "復讐加算（自傷還元）", shortTag: "復讐加算", color: "#D96B43" },
+  desperation_mult: { label: "背水強化（HP50%以下）", shortTag: "背水倍化", color: "#E05A47" },
+  sacrifice_mult: { label: "生贄増幅（HP40%消費）", shortTag: "生贄倍化", color: "#C93A2B" },
+  vengeance_flat: { label: "復讐倍率（自傷還元）", shortTag: "復讐倍率", color: "#D96B43" },
   f_resonance: { label: "不の共鳴", shortTag: "不の共鳴", color: "#B89387" },
   f_invert: { label: "不の反転", shortTag: "不の反転", color: "#C8A464" },
   f_sacrifice: { label: "不の犠牲", shortTag: "不の犠牲", color: "#A36B62" },
