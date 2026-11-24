@@ -12,7 +12,11 @@ import {
   type WordFilterState,
 } from "@/components/WordFilterBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ACHIEVEMENTS } from "@/data/achievements";
+import {
+  ACHIEVEMENT_CATEGORIES,
+  ACHIEVEMENTS,
+  getAchievementProgress,
+} from "@/data/achievements";
 import { RELIC_LIST } from "@/data/relics";
 import { getWordMaster, THEME_PACKS } from "@/data/words";
 import { type OwnedWord, type WordMasterEntry } from "@/types/game";
@@ -221,38 +225,94 @@ export default function CodexPage() {
         </TabsContent>
 
         {/* Achievements */}
-        <TabsContent value="achievements">
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            {ACHIEVEMENTS.map((a) => {
-              const unlocked = save.unlockedAchievements.includes(a.id);
-              return (
-                <div
-                  key={a.id}
-                  className={`flex items-start gap-3 border p-3.5 ${
-                    unlocked
-                      ? "border-[#D4AF37] bg-[#1A1610]"
-                      : "border-[#242028] bg-[#100E14] opacity-55"
-                  }`}
-                >
-                  <span
-                    className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border font-serif text-lg font-extrabold ${
-                      unlocked
-                        ? "border-[#D4AF37] bg-[#261E0E] text-[#E3B94E]"
-                        : "border-[#3A332A] bg-[#0B0A0E] text-[#565047]"
-                    }`}
-                  >
-                    {a.badgeKanji}
-                  </span>
+        <TabsContent value="achievements" className="space-y-6">
+          {ACHIEVEMENT_CATEGORIES.map((cat) => {
+            const catItems = ACHIEVEMENTS.filter((a) => a.category === cat.id);
+            const catUnlocked = catItems.filter((a) =>
+              save.unlockedAchievements.includes(a.id)
+            ).length;
+            return (
+              <section key={cat.id} className="space-y-2.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#2E2822] pb-2">
                   <div>
-                    <h3 className="font-serif text-sm font-bold text-[#F2ECE0]">
-                      {a.title}
-                    </h3>
-                    <p className="mt-1 text-xs text-[#A89F8E]">{a.description}</p>
+                    <h2 className="font-serif text-base font-extrabold text-[#F2ECE0]">
+                      {cat.label}
+                    </h2>
+                    <p className="text-[11px] text-[#968E7E]">{cat.description}</p>
                   </div>
+                  <span className="border border-[#3A332A] bg-[#121016] px-2 py-0.5 font-mono text-xs text-[#E3B94E]">
+                    {catUnlocked} / {catItems.length}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {catItems.map((a) => {
+                    const unlocked = save.unlockedAchievements.includes(a.id);
+                    const progress = getAchievementProgress(a.id, save);
+                    const pct = progress
+                      ? Math.min(100, Math.round((progress.current / progress.target) * 100))
+                      : unlocked
+                        ? 100
+                        : 0;
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-start gap-3 border p-3.5 ${
+                          unlocked
+                            ? "border-[#D4AF37] bg-[#1A1610]"
+                            : "border-[#242028] bg-[#100E14] opacity-75"
+                        }`}
+                      >
+                        <span
+                          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border font-serif text-lg font-extrabold ${
+                            unlocked
+                              ? "border-[#D4AF37] bg-[#261E0E] text-[#E3B94E]"
+                              : "border-[#3A332A] bg-[#0B0A0E] text-[#565047]"
+                          }`}
+                        >
+                          {a.badgeKanji}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="truncate font-serif text-sm font-bold text-[#F2ECE0]">
+                              {a.title}
+                            </h3>
+                            {unlocked && (
+                              <span className="shrink-0 font-mono text-[10px] font-bold text-[#E3B94E]">
+                                達成
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs leading-snug text-[#A89F8E]">
+                            {a.description}
+                          </p>
+                          {progress && (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex justify-between font-mono text-[10px] text-[#968E7E]">
+                                <span>進捗</span>
+                                <span className={unlocked ? "text-[#E3B94E]" : ""}>
+                                  {progress.current} / {progress.target}
+                                  {progress.unit}
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full bg-[#0B0A0E]">
+                                <div
+                                  style={{ width: `${pct}%` }}
+                                  className={`h-full transition-all duration-300 ${
+                                    unlocked ? "bg-[#D4AF37]" : "bg-[#6E5C3A]"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </TabsContent>
       </Tabs>
 
