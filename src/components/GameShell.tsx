@@ -3,6 +3,8 @@
 import React, {
   createContext,
   useContext,
+  useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -13,6 +15,7 @@ import {
   Compass,
   HelpCircle,
   Layers,
+  Pencil,
   Pickaxe,
   Trophy,
   UserCheck,
@@ -42,6 +45,7 @@ interface SaveContextValue {
   mobileBattleFullscreen: boolean;
   setMobileBattleFullscreen: (active: boolean) => void;
   openTutorial: () => void;
+  openAccountModal: () => void;
 }
 
 const SaveContext = createContext<SaveContextValue>({
@@ -52,6 +56,7 @@ const SaveContext = createContext<SaveContextValue>({
   mobileBattleFullscreen: false,
   setMobileBattleFullscreen: () => {},
   openTutorial: () => {},
+  openAccountModal: () => {},
 });
 
 export function useSaveData() {
@@ -102,9 +107,19 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   );
   const [guestNameInput, setGuestNameInput] = useState("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [isFirstNameSetup, setIsFirstNameSetup] = useState(false);
   const [mobileBattleFullscreen, setMobileBattleFullscreen] = useState(false);
   const [manualTutorialOpen, setManualTutorialOpen] = useState(false);
+  const nameSetupTimerRef = useRef<number | null>(null);
   const isMobileDungeonImmersive = mobileBattleFullscreen && pathname === "/dungeon";
+
+  useEffect(() => {
+    return () => {
+      if (nameSetupTimerRef.current !== null) {
+        window.clearTimeout(nameSetupTimerRef.current);
+      }
+    };
+  }, []);
 
   const setSave = (next: PlayerSaveData) => {
     clientSnapshotCache = next;
@@ -115,9 +130,21 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const isTutorialOpen = manualTutorialOpen || (hydrated && !save.tutorialDismissed);
 
   const handleDismissTutorial = () => {
+    const isInitialTutorial = !save.tutorialDismissed;
     setManualTutorialOpen(false);
-    if (!save.tutorialDismissed) {
+    if (isInitialTutorial) {
       setSave({ ...save, tutorialDismissed: true });
+      if (save.guestName === "名無しの召喚士") {
+        if (nameSetupTimerRef.current !== null) {
+          window.clearTimeout(nameSetupTimerRef.current);
+        }
+        nameSetupTimerRef.current = window.setTimeout(() => {
+          nameSetupTimerRef.current = null;
+          setIsFirstNameSetup(true);
+          setGuestNameInput("");
+          setAccountDialogOpen(true);
+        }, 160);
+      }
     }
   };
 
@@ -129,8 +156,15 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   };
 
   const handleOpenAccount = (open: boolean) => {
+    if (nameSetupTimerRef.current !== null) {
+      window.clearTimeout(nameSetupTimerRef.current);
+      nameSetupTimerRef.current = null;
+    }
     if (open) {
+      setIsFirstNameSetup(false);
       setGuestNameInput(save.guestName);
+    } else {
+      setIsFirstNameSetup(false);
     }
     setAccountDialogOpen(open);
   };
@@ -139,6 +173,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
     e.preventDefault();
     const cleaned = guestNameInput.trim().slice(0, 16) || "名無しの召喚士";
     setSave({ ...save, guestName: cleaned });
+    setIsFirstNameSetup(false);
     setAccountDialogOpen(false);
   };
 
@@ -155,6 +190,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
         mobileBattleFullscreen,
         setMobileBattleFullscreen,
         openTutorial: () => setManualTutorialOpen(true),
+        openAccountModal: () => handleOpenAccount(true),
       }}
     >
       <div
@@ -231,6 +267,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                   render={
                     <button
                       type="button"
+                      title="召喚士名を変更"
                       className="flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-2.5 py-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#ECE6D8]"
                     />
                   }
@@ -239,33 +276,50 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                   <span className="max-w-[92px] truncate font-medium">
                     {hydrated ? save.guestName : "読込中"}
                   </span>
+                  <Pencil className="h-3 w-3 shrink-0 text-[#8A7348]" />
                 </DialogTrigger>
                 <DialogContent className="rounded-none border border-[#8A7348] bg-[#121016] text-[#ECE6D8] sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle className="font-serif text-lg font-bold text-[#F2ECE0]">
-                      召喚士記録（ローカル保存）
+                      {isFirstNameSetup
+                        ? "召喚士名を登録しよう"
+                        : "召喚士記録（ローカル保存）"}
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 text-xs leading-relaxed text-[#B4ABA0]">
-                    <form onSubmit={handleRenameGuest} className="space-y-2">
+                    <form onSubmit={handleRenameGuest} className="space-y-2.5">
+                      <p className="text-[11px] text-[#CFC8B8]">
+                        全国ランキングや挑戦履歴に表示される名前を設定できます（後からいつでも変更できます）。
+                      </p>
                       <label className="block font-mono text-[11px] text-[#8A7348]">
-                        召喚士名
+                        召喚士名（最大16文字）
                       </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
+                          autoFocus
                           value={guestNameInput}
                           onChange={(e) => setGuestNameInput(e.target.value)}
                           maxLength={16}
-                          className="w-full border border-[#3A332A] bg-[#0B0A0E] px-3 py-2 text-sm text-[#ECE6D8] focus:border-[#D4AF37] focus:outline-none"
+                          placeholder="例：言霊の旅人（空欄で「名無しの召喚士」）"
+                          className="w-full border border-[#3A332A] bg-[#0B0A0E] px-3 py-2 text-sm text-[#ECE6D8] placeholder:text-xs placeholder:text-[#6B6458] focus:border-[#D4AF37] focus:outline-none"
                         />
                         <button
                           type="submit"
                           className="shrink-0 border border-[#8A7348] bg-[#261E0E] px-4 py-2 font-bold text-[#E3B94E] hover:bg-[#352A14]"
                         >
-                          変更
+                          {isFirstNameSetup ? "決定" : "変更"}
                         </button>
                       </div>
+                      {isFirstNameSetup && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAccount(false)}
+                          className="font-mono text-[11px] text-[#8E8678] underline underline-offset-4 hover:text-[#ECE6D8]"
+                        >
+                          「名無しの召喚士」のままあとで設定する
+                        </button>
+                      )}
                     </form>
                     <div className="space-y-3 border-t border-[#2A241E] pt-3">
                       <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#968E7E]">
