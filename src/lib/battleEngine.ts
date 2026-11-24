@@ -79,7 +79,6 @@ export interface OutputBreakdown {
   baseOutput: number;
   flatAdd: number;
   multiplier: number;
-  exponent: number;
   retriggers: number;
   finalOutput: number;
   role: CommandRole;
@@ -104,17 +103,20 @@ export interface RunState {
   isEndless: boolean;
   turn: number;
   cardsPlayedThisTurn: number;
+  prevTurnCardsPlayed: number;
   totalCardsPlayedInBattle: number;
   totalCardsPlayedInRun: number;
+  totalAttacksPlayedInRun: number;
   tengenPermanentMult: number;
-  permanentExponentBonus: number;
   permanentFlatAdd: number;
+  permanentBaseMult: number;
   permanentMultBonus: number;
 
   playerHp: number;
   playerMaxHp: number;
   playerShield: number;
   energy: number;
+  carryOverEnergy: number;
   maxEnergy: number;
 
   deck: BattleCard[];
@@ -127,7 +129,7 @@ export interface RunState {
   // Battle-scoped scaling state
   battleFlatAdd: number;
   battleMult: number;
-  battleExponent: number;
+  battleGuardMult: number;
   nextCardMult: number;
   nextCardRetrigger: number;
   nextAttackMult: number;
@@ -142,18 +144,30 @@ export interface RunState {
   guardsPlayedInBattle: number;
   energySpentThisTurn: number;
   attrsPlayedThisTurn: Attribute[];
+  posPlayedThisTurn: string[];
   lastCombatAction: { role: "attack" | "guard"; output: number } | null;
   lastAttrPlayed: Attribute | null;
   attrsPlayedThisBattle: Attribute[];
   fourElementsTriggeredThisBattle: boolean;
+  firstAttackUsedInBattle: boolean;
+  firstCost2PlusUsedThisTurn: boolean;
+  penNibReady: boolean;
   enemyWeakenPct: number;
   freeExtremeUsedThisTurn: boolean;
   highRankCostDiscountThisTurn: number;
-  allCardCostDiscountThisTurn: number;
+  englishCostDiscountThisTurn: number;
+  nextCardCostDiscountThisTurn: number;
   zeroCostTriggersThisTurn: number;
+  tsuneRebelDrawsThisTurn: number;
   librarySkillDrawsThisTurn: number;
+  vowShieldAttackCountThisTurn: number;
+  survivorFangHealsThisTurn: number;
+  sereneHealTriggersThisTurn: number;
+  compassTriggeredThisTurn: boolean;
   whiteRingTriggeredThisTurn: boolean;
   staircaseStep: 0 | 1 | 2 | 3;
+  cardCostOverrides: Record<string, number>;
+  mummifiedZeroIds: string[];
 
   // Enemy state
   enemy: EnemyDef;
@@ -248,12 +262,18 @@ export function getEnemyCurrentIntent(state: RunState): EnemyIntent {
     isEnragedOverride
   ) {
     const baseAtk = isEnragedOverride ? getEnemyBaseMaxAtk(state.enemy) : base.value;
-    const sereneMult = state.relicIds.includes("white_revelation_serene") ? 0.8 : 1;
+    const sereneMult = state.relicIds.includes("white_revelation_serene") ? 0.7 : 1;
+    const redBullMult = state.relicIds.includes("red_bull_idol") ? 0.75 : 1;
+    const berserkMult = state.relicIds.includes("black_pact_berserk_stone") ? 1.45 : 1;
     // Weaken reduces the enemy's base attack, while bonus ATK from enrage/buffs bypasses weaken
     const weakenedBase = Math.floor(
-      baseAtk * sereneMult * (1 - state.enemyWeakenPct / 100)
+      baseAtk *
+        sereneMult *
+        redBullMult *
+        berserkMult *
+        (1 - state.enemyWeakenPct / 100)
     );
-    const totalAtk = Math.max(1, weakenedBase + state.enemyAtkBonus);
+    const totalAtk = Math.max(1, weakenedBase + Math.floor(state.enemyAtkBonus * berserkMult));
     return {
       type: isEnragedOverride ? "heavy_attack" : base.type,
       value: totalAtk,
@@ -532,16 +552,19 @@ export function startNewRun(
     isEndless: false,
     turn: 1,
     cardsPlayedThisTurn: 0,
+    prevTurnCardsPlayed: 0,
     totalCardsPlayedInBattle: 0,
     totalCardsPlayedInRun: 0,
+    totalAttacksPlayedInRun: 0,
     tengenPermanentMult: 1,
-    permanentExponentBonus: 0,
     permanentFlatAdd: 0,
+    permanentBaseMult: 1,
     permanentMultBonus: 1,
     playerHp: 80,
     playerMaxHp: 80,
     playerShield: 0,
     energy: 3,
+    carryOverEnergy: 0,
     maxEnergy: 3,
     deck,
     drawPile: remainingDraw,
@@ -551,7 +574,7 @@ export function startNewRun(
     relicIds: [],
     battleFlatAdd: 0,
     battleMult: 1,
-    battleExponent: 1,
+    battleGuardMult: 1,
     nextCardMult: 1,
     nextCardRetrigger: 0,
     nextAttackMult: 1,
@@ -566,18 +589,30 @@ export function startNewRun(
     guardsPlayedInBattle: 0,
     energySpentThisTurn: 0,
     attrsPlayedThisTurn: [],
+    posPlayedThisTurn: [],
     lastCombatAction: null,
     lastAttrPlayed: null,
     attrsPlayedThisBattle: [],
     fourElementsTriggeredThisBattle: false,
+    firstAttackUsedInBattle: false,
+    firstCost2PlusUsedThisTurn: false,
+    penNibReady: false,
     enemyWeakenPct: 0,
     freeExtremeUsedThisTurn: false,
     highRankCostDiscountThisTurn: 0,
-    allCardCostDiscountThisTurn: 0,
+    englishCostDiscountThisTurn: 0,
+    nextCardCostDiscountThisTurn: 0,
     zeroCostTriggersThisTurn: 0,
+    tsuneRebelDrawsThisTurn: 0,
     librarySkillDrawsThisTurn: 0,
+    vowShieldAttackCountThisTurn: 0,
+    survivorFangHealsThisTurn: 0,
+    sereneHealTriggersThisTurn: 0,
+    compassTriggeredThisTurn: false,
     whiteRingTriggeredThisTurn: false,
     staircaseStep: 0,
+    cardCostOverrides: {},
+    mummifiedZeroIds: [],
     enemy: firstEnemy,
     enemyHp: firstEnemy.maxHp,
     enemyShield: 0,
@@ -609,23 +644,48 @@ export function getTurnMaxEnergy(relicIds: string[], turn = 1): number {
   if (relicIds.includes("black_pact_glass")) energy += 2;
   if (relicIds.includes("white_revelation_apex")) energy += 1;
   if (relicIds.includes("black_pact_blitz") && turn <= 2) energy += 3;
+  if (relicIds.includes("black_pact_choker")) energy += 3;
+  if (relicIds.includes("black_pact_berserk_stone")) energy += 2;
+  if (relicIds.includes("calm_teapot") && turn === 1) energy += 2;
+  if (relicIds.includes("white_revelation_astral") && turn % 2 === 0) energy += 2;
   if (relicIds.includes("empty_pocket")) energy -= 1;
   if (relicIds.includes("black_pact_solo")) energy -= 1;
   return Math.max(1, energy);
 }
 
-export function getTurnDrawCount(relicIds: string[], isTurnOne: boolean): number {
+export function getTurnDrawCount(
+  relicIds: string[],
+  isTurnOne: boolean,
+  turn = 1,
+  prevTurnCardsPlayed = 99,
+  leftoverBonusDraw = 0
+): number {
   let count = 5;
   if (relicIds.includes("chi_honryu")) count += 2;
   if (relicIds.includes("white_revelation_apex")) count += 1;
+  if (relicIds.includes("black_pact_chaos_eye")) count += 2;
   if (relicIds.includes("black_pact_truncate")) count -= 1;
   if (isTurnOne && relicIds.includes("sokudoku_master")) count += 3;
   if (isTurnOne && relicIds.includes("black_pact_glass")) count += 1;
+  if (!isTurnOne && relicIds.includes("calm_teapot") && prevTurnCardsPlayed <= 3) {
+    count += 2;
+  }
+  if (!isTurnOne && relicIds.includes("white_revelation_astral") && turn % 2 === 0) {
+    count += 2;
+  }
+  count += leftoverBonusDraw;
   return Math.max(3, count);
+}
+
+export function isEnglishCardTerm(term: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9-]*$/.test(term);
 }
 
 export function getEffectiveCardCost(state: RunState, card: BattleCard): number {
   if (state.relicIds.includes("first_zero") && state.cardsPlayedThisTurn === 0) {
+    return 0;
+  }
+  if (state.mummifiedZeroIds.includes(card.instanceId)) {
     return 0;
   }
   const hasTsuneRebel = state.relicIds.includes("tsune_rebel");
@@ -633,7 +693,11 @@ export function getEffectiveCardCost(state: RunState, card: BattleCard): number 
   if (hasTsuneRebel && card.rank === "N") return 0;
   if (hasWhiteOmega && card.rank === "SSR" && !state.freeExtremeUsedThisTurn) return 0;
 
-  let effective = card.cost - state.allCardCostDiscountThisTurn;
+  const baseCost = state.cardCostOverrides[card.instanceId] ?? card.cost;
+  let effective =
+    baseCost -
+    state.nextCardCostDiscountThisTurn -
+    (isEnglishCardTerm(card.term) ? state.englishCostDiscountThisTurn : 0);
   if (
     state.relicIds.includes("black_pact_heavy") &&
     (card.rank === "N" || card.rank === "R")
@@ -692,12 +756,13 @@ export function getDynamicSkillPreview(
       return `今すぐ発動時：防御${stacks}回 → 次攻撃 ×${mult.toFixed(1)}`;
     }
     case "pursuit_combo": {
-      const add = Math.min(11, state.attacksPlayedThisTurn * card.skillPower);
-      return `今すぐ発動時：攻撃${state.attacksPlayedThisTurn}回 → 次カード再発動 +${add}`;
+      const stacks = Math.min(8, state.attacksPlayedThisTurn);
+      const mult = Math.pow(card.skillPower, stacks);
+      return `今すぐ発動時：攻撃${stacks}回 → 次攻撃 ×${mult.toFixed(2)}`;
     }
     case "vengeance_flat": {
       const bonus = state.selfHarmHpTotalInBattle * card.skillPower;
-      return `今すぐ発動時：自傷累計${state.selfHarmHpTotalInBattle}HP → 次攻撃基礎 +${bonus}`;
+      return `今すぐ発動時：自傷累計${state.selfHarmHpTotalInBattle}HP → 次攻撃倍率 +${bonus.toFixed(1)}`;
     }
     case "self_harm_mult": {
       const add = state.selfHarmHpTotalInBattle * card.skillPower;
@@ -721,17 +786,17 @@ export function getDynamicSkillPreview(
     }
     case "desperation_mult": {
       const pct = Math.round((state.playerHp / state.playerMaxHp) * 100);
-      const ok = state.playerHp <= state.playerMaxHp * 0.3;
+      const ok = state.playerHp <= state.playerMaxHp * 0.5;
       return ok
-        ? `発動条件達成（現在HP ${pct}% / 30%以下）→ 次攻撃 ×${card.skillPower}`
-        : `条件未達成（現在HP ${pct}% / 30%以下が必要）`;
+        ? `発動条件達成（現在HP ${pct}% / 50%以下）→ 次攻撃 ×${card.skillPower}`
+        : `条件未達成（現在HP ${pct}% / 50%以下が必要）`;
     }
     case "sacrifice_mult": {
       const sacLoss = Math.min(
         Math.max(0, state.playerHp - 1),
-        Math.max(1, Math.floor(state.playerHp * 0.5))
+        Math.max(1, Math.floor(state.playerHp * 0.4))
       );
-      return `今すぐ発動時：HP -${sacLoss} 消費 → 次攻撃 ×${card.skillPower}`;
+      return `今すぐ発動時：HP -${sacLoss} 消費・盾+${sacLoss} → 次攻撃 ×${card.skillPower}`;
     }
     case "english_link": {
       const engCount =
@@ -747,7 +812,7 @@ export function getDynamicSkillPreview(
         Math.floor(state.lastCombatAction.output * card.skillPower)
       );
       const label = state.lastCombatAction.role === "attack" ? "ダメージ" : "シールド";
-      return `今すぐ発動時：直前行動の50% → ${formatJapaneseNumber(val).text} ${label}`;
+      return `今すぐ発動時：直前行動の${Math.round(card.skillPower * 100)}% → ${formatJapaneseNumber(val).text} ${label}`;
     }
     default:
       return null;
@@ -759,21 +824,28 @@ function drawCards(
   discardPile: BattleCard[],
   count: number,
   rng: () => number
-): { drawn: BattleCard[]; nextDraw: BattleCard[]; nextDiscard: BattleCard[] } {
+): {
+  drawn: BattleCard[];
+  nextDraw: BattleCard[];
+  nextDiscard: BattleCard[];
+  reshuffleCount: number;
+} {
   let d = [...drawPile];
   let disc = [...discardPile];
   const drawn: BattleCard[] = [];
+  let reshuffleCount = 0;
 
   for (let i = 0; i < count; i++) {
     if (d.length === 0) {
       if (disc.length === 0) break;
       d = shuffleWithRng(disc, rng);
       disc = [];
+      reshuffleCount += 1;
     }
     const top = d.shift();
     if (top) drawn.push(top);
   }
-  return { drawn, nextDraw: d, nextDiscard: disc };
+  return { drawn, nextDraw: d, nextDiscard: disc, reshuffleCount };
 }
 
 function drawIntoHand(
@@ -784,10 +856,18 @@ function drawIntoHand(
   rng: () => number,
   handLimit = MAX_HAND_SIZE,
   hasWhiteBlank = false
-): { nextDraw: BattleCard[]; nextDiscard: BattleCard[]; nextHand: BattleCard[] } {
+): {
+  nextDraw: BattleCard[];
+  nextDiscard: BattleCard[];
+  nextHand: BattleCard[];
+  newlyDrawn: BattleCard[];
+  reshuffleCount: number;
+} {
   let d = nextDraw;
   let disc = nextDiscard;
   let hand = nextHand;
+  const newlyDrawn: BattleCard[] = [];
+  let totalReshuffles = 0;
   let toDraw = desiredCount;
   let safety = 0;
 
@@ -799,12 +879,71 @@ function drawIntoHand(
     const res = drawCards(d, disc, actualCount, rng);
     d = res.nextDraw;
     disc = res.nextDiscard;
+    totalReshuffles += res.reshuffleCount;
     if (res.drawn.length === 0) break;
     hand = [...hand, ...res.drawn];
+    newlyDrawn.push(...res.drawn);
     toDraw = hasWhiteBlank ? res.drawn.filter((c) => c.rank === "F").length : 0;
   }
 
-  return { nextDraw: d, nextDiscard: disc, nextHand: hand };
+  return {
+    nextDraw: d,
+    nextDiscard: disc,
+    nextHand: hand,
+    newlyDrawn,
+    reshuffleCount: totalReshuffles,
+  };
+}
+
+function applyDrawRelicEffects(
+  state: RunState,
+  newlyDrawn: BattleCard[],
+  reshuffleCount: number,
+  rng: () => number
+): void {
+  if (reshuffleCount > 0 && state.relicIds.includes("sundial_gear")) {
+    state.energy += 2 * reshuffleCount;
+    state.battleMult *= Math.pow(1.45, reshuffleCount);
+    state.logs.unshift(
+      `日時計の歯車：リシャッフル${reshuffleCount}回によりコスト+${2 * reshuffleCount} ＆ 戦闘乗算！`
+    );
+  }
+  if (state.relicIds.includes("black_pact_chaos_eye") && newlyDrawn.length > 0) {
+    const nextOverrides = { ...state.cardCostOverrides };
+    for (const c of newlyDrawn) {
+      nextOverrides[c.instanceId] = Math.floor(rng() * 4); // 0..3
+    }
+    state.cardCostOverrides = nextOverrides;
+  }
+  if (state.relicIds.includes("white_revelation_blank") && newlyDrawn.length > 0) {
+    const fDrawn = newlyDrawn.filter((c) => c.rank === "F").length;
+    if (fDrawn > 0) {
+      state.battleMult *= Math.pow(1.45, fDrawn);
+      state.logs.unshift(`白紙の調律：『不』${fDrawn}枚を調和し戦闘乗算 ×${Math.pow(1.45, fDrawn).toFixed(2)}！`);
+    }
+  }
+}
+
+function healPlayer(state: RunState, rawAmount: number): number {
+  const scaled = state.relicIds.includes("blood_meat_relic")
+    ? Math.floor(rawAmount * 1.5)
+    : Math.floor(rawAmount);
+  const clamped = Math.max(0, scaled);
+  const prevHp = state.playerHp;
+  state.playerHp = Math.min(state.playerMaxHp, state.playerHp + clamped);
+  const actualHealed = Math.max(0, state.playerHp - prevHp);
+  if (
+    actualHealed > 0 &&
+    state.phase === "battle" &&
+    state.enemyHp > 0 &&
+    state.relicIds.includes("white_revelation_serene") &&
+    state.sereneHealTriggersThisTurn < 2
+  ) {
+    state.sereneHealTriggersThisTurn += 1;
+    state.battleMult *= 1.3;
+    state.logs.unshift("常世の静謐：回復の息吹により戦闘乗算 ×1.3！");
+  }
+  return actualHealed;
 }
 
 function applySelfHarm(state: RunState, rawLoss: number): number {
@@ -817,9 +956,13 @@ function applySelfHarm(state: RunState, rawLoss: number): number {
     state.selfHarmCountInBattle += 1;
     state.selfHarmHpTotalInBattle += actualLost;
     if (actualLost > 0 && state.relicIds.includes("pain_transmute")) {
-      const bonus = actualLost * 100;
-      state.permanentFlatAdd += bonus;
-      state.battleFlatAdd += bonus;
+      state.battleMult *= 1.4;
+      state.permanentMultBonus *= 1.06;
+    }
+    if (actualLost > 0 && state.relicIds.includes("adversity_helm")) {
+      const helmShield = Math.max(1, Math.floor(state.playerMaxHp * 0.18));
+      state.playerShield += helmShield;
+      state.nextAttackMult *= 1.6;
     }
   }
   return actualLost;
@@ -856,6 +999,12 @@ export function playCardFromHand(
   if (role === "guard" && prevState.relicIds.includes("black_pact_solo")) {
     return prevState;
   }
+  if (
+    prevState.relicIds.includes("black_pact_choker") &&
+    prevState.cardsPlayedThisTurn >= 6
+  ) {
+    return prevState;
+  }
   const cardIndex = prevState.hand.findIndex((c) => c.instanceId === cardInstanceId);
   if (cardIndex === -1) return prevState;
 
@@ -890,6 +1039,19 @@ export function playCardFromHand(
   if (!state.attrsPlayedThisTurn.includes(card.attribute)) {
     state.attrsPlayedThisTurn = [...state.attrsPlayedThisTurn, card.attribute];
   }
+  if (!state.posPlayedThisTurn.includes(card.pos)) {
+    state.posPlayedThisTurn = [...state.posPlayedThisTurn, card.pos];
+  }
+  if (
+    state.relicIds.includes("compass_erudition") &&
+    !state.compassTriggeredThisTurn &&
+    state.posPlayedThisTurn.length >= 3
+  ) {
+    state.compassTriggeredThisTurn = true;
+    state.permanentMultBonus = Number((state.permanentMultBonus * 1.25).toFixed(4));
+    state.battleMult *= 1.6;
+    state.logs.unshift("博識の羅針盤発動！永続乗算 ×1.25 ＆ 戦闘乗算 ×1.6！");
+  }
 
   if (
     state.relicIds.includes("white_revelation_omega") &&
@@ -906,6 +1068,9 @@ export function playCardFromHand(
   ) {
     state.highRankCostDiscountThisTurn = 0;
   }
+  if (state.nextCardCostDiscountThisTurn > 0) {
+    state.nextCardCostDiscountThisTurn = 0;
+  }
   if (
     state.relicIds.includes("zero_cost_engine") &&
     cost === 0 &&
@@ -916,10 +1081,12 @@ export function playCardFromHand(
     state.battleMult *= 1.25;
   }
   if (state.relicIds.includes("blood_ink_pact")) {
-    applySelfHarm(state, 5);
+    applySelfHarm(state, 4);
+    state.battleMult *= 1.25;
+    state.playerShield += Math.max(1, Math.floor(state.playerMaxHp * 0.04));
   }
   if (state.relicIds.includes("empty_pocket") && state.energy === 0) {
-    state.battleMult = state.battleMult * 1.45;
+    state.battleMult = state.battleMult * 1.7;
   }
 
   // Remove played card from hand -> playedThisTurn (prevent infinite same-turn reshuffle!)
@@ -939,7 +1106,20 @@ export function playCardFromHand(
     state.relicIds.includes("white_revelation_rhythm") &&
     (state.totalCardsPlayedInRun + 1) % 5 === 0;
 
-  // Determine retrigger count (capped cleanly at 12 so multiplicative chains 2*2=4 feel great without freezing)
+  const penNibActiveThisPlay =
+    role === "attack" &&
+    state.relicIds.includes("fountain_pen_nib") &&
+    state.penNibReady;
+  if (penNibActiveThisPlay) {
+    state.penNibReady = false;
+  }
+
+  const firstAttackRedBullActive =
+    role === "attack" &&
+    state.relicIds.includes("red_bull_idol") &&
+    !state.firstAttackUsedInBattle;
+
+  // Determine retrigger count (capped cleanly at 12)
   let retriggers = 1 + state.nextCardRetrigger;
   state.nextCardRetrigger = 0;
 
@@ -962,7 +1142,16 @@ export function playCardFromHand(
   if (state.relicIds.includes("black_pact_blitz") && state.turn <= 2) {
     retriggers += 1;
   }
-  if (state.relicIds.includes("white_revelation_omega")) {
+  if (
+    state.relicIds.includes("black_pact_berserk_stone") &&
+    state.cardsPlayedThisTurn < 2
+  ) {
+    retriggers += 1;
+  }
+  if (
+    state.relicIds.includes("white_revelation_omega") &&
+    (card.rank === "SSR" || card.rank === "UR")
+  ) {
     retriggers += 1;
   }
   if (state.relicIds.includes("white_revelation_foresight") && state.turn === 1) {
@@ -972,6 +1161,17 @@ export function playCardFromHand(
     retriggers += 1;
   }
   if (isRhythmBeat) {
+    retriggers += 1;
+  }
+  if (
+    state.relicIds.includes("ancient_necronomicon") &&
+    !state.firstCost2PlusUsedThisTurn &&
+    card.cost >= 2
+  ) {
+    state.firstCost2PlusUsedThisTurn = true;
+    retriggers += 1;
+  }
+  if (penNibActiveThisPlay) {
     retriggers += 1;
   }
 
@@ -1016,6 +1216,7 @@ export function playCardFromHand(
   const hasBlackHeavy = state.relicIds.includes("black_pact_heavy");
   const hasBlackBlitz = state.relicIds.includes("black_pact_blitz");
   const hasBlackRot = state.relicIds.includes("black_pact_rot");
+  const hasBlackChoker = state.relicIds.includes("black_pact_choker");
   const hasWhiteApex = state.relicIds.includes("white_revelation_apex");
   const hasTsuneRebel = state.relicIds.includes("tsune_rebel");
   const hasEmotionDetonator = state.relicIds.includes("emotion_detonator");
@@ -1044,10 +1245,10 @@ export function playCardFromHand(
       state.staircaseStep === 2
     ) {
       state.staircaseStep = 3;
-      state.permanentMultBonus = Number((state.permanentMultBonus + 0.5).toFixed(2));
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.35).toFixed(4));
       state.battleMult = state.battleMult * 3.0;
       state.nextCardRetrigger = Math.min(4, state.nextCardRetrigger + 1);
-      state.logs.unshift("階梯の詠唱（永続）発動！永続初期乗算 +0.5 ＆ 戦闘乗算 ×3.0 ＆ 次カード再発動+1！");
+      state.logs.unshift("階梯の詠唱（永続）発動！永続初期乗算 ×1.35 ＆ 戦闘乗算 ×3.0 ＆ 次カード再発動+1！");
     }
   }
 
@@ -1080,42 +1281,48 @@ export function playCardFromHand(
       state.battleMult *= 2.0;
     }
     if (hasTwoKanji && isTwoKanji) {
-      state.permanentFlatAdd += 35;
-      state.battleFlatAdd += 35;
-      state.battleMult *= 1.4;
+      state.permanentFlatAdd += 50;
+      state.battleFlatAdd += 50;
+      state.battleMult *= 1.45;
     }
     if (hasKyokuten && (card.rank === "SSR" || card.rank === "UR")) {
       state.battleMult *= 2.2;
     }
     if (hasHeavyGravity && card.cost >= 3) {
-      state.permanentFlatAdd += 150;
-      state.battleFlatAdd += 150;
-      state.battleMult *= 1.8;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.08).toFixed(4));
+      state.battleMult *= 1.85;
     }
-    if (hasWhiteApex) {
-      state.battleExponent = Number((state.battleExponent + 0.008).toFixed(3));
+    if (hasWhiteApex && r === 0) {
+      state.battleMult *= 1.08;
     }
     if (hasBlackBloodwrite && r === 0) {
-      state.permanentFlatAdd += 80;
-      state.battleFlatAdd += 80;
-      state.battleMult *= 1.25;
+      state.battleMult *= 1.35;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.06).toFixed(4));
     }
     if (
       hasBlackHeavy &&
       r === 0 &&
       (card.rank === "SSR" || card.rank === "UR")
     ) {
-      state.battleExponent = Number((state.battleExponent + 0.035).toFixed(3));
-      state.battleMult *= 2.2;
+      state.battleMult *= 3.2;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.22).toFixed(4));
     }
-    if (isPureNoFDeck) {
-      state.battleMult *= 1.25;
+    if (isPureNoFDeck && r === 0) {
+      state.battleMult *= 1.3;
+    }
+    if (hasWhiteBlank && card.rank === "F" && r === 0) {
+      state.battleMult *= 1.45;
     }
     if (isRhythmBeat && r === 0) {
-      state.permanentFlatAdd += 80;
-      state.battleFlatAdd += 80;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.15).toFixed(4));
     }
-    if (hasTsuneRebel && card.rank === "N" && r === 0) {
+    if (
+      hasTsuneRebel &&
+      card.rank === "N" &&
+      r === 0 &&
+      state.tsuneRebelDrawsThisTurn < 3
+    ) {
+      state.tsuneRebelDrawsThisTurn += 1;
       const drawnRes = drawIntoHand(
         nextDraw,
         nextDiscard,
@@ -1128,13 +1335,15 @@ export function playCardFromHand(
       nextDraw = drawnRes.nextDraw;
       nextDiscard = drawnRes.nextDiscard;
       nextHand = drawnRes.nextHand;
+      applyDrawRelicEffects(state, drawnRes.newlyDrawn, drawnRes.reshuffleCount, getRng());
     }
     if (hasTsuneResonator && card.rank === "N") {
       state.battleMult *= 1.3;
     }
     if (hasJakusha && isWeakBaseCard) {
-      state.permanentFlatAdd += 45;
-      state.battleFlatAdd += 45;
+      state.permanentFlatAdd += 60;
+      state.battleFlatAdd += 60;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.04).toFixed(4));
     }
     if (hasWhiteLibrary && role === "skill") {
       state.battleMult *= 1.2;
@@ -1152,6 +1361,7 @@ export function playCardFromHand(
         nextDraw = drawnRes.nextDraw;
         nextDiscard = drawnRes.nextDiscard;
         nextHand = drawnRes.nextHand;
+        applyDrawRelicEffects(state, drawnRes.newlyDrawn, drawnRes.reshuffleCount, getRng());
       }
     }
     if (hasEmeraldEcho && card.attribute === "sense" && r === 0) {
@@ -1168,9 +1378,28 @@ export function playCardFromHand(
       attrMult = 1.25;
     }
     if (hasEmotionDetonator && role === "attack" && card.attribute === "emotion") {
-      state.permanentFlatAdd += 40;
-      state.battleFlatAdd += 40;
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.03).toFixed(4));
+      state.battleMult *= 1.4;
+    }
+    if (
+      r === 0 &&
+      role === "attack" &&
+      state.relicIds.includes("white_revelation_vow") &&
+      state.playerShield > 0 &&
+      state.vowShieldAttackCountThisTurn < 2
+    ) {
+      state.vowShieldAttackCountThisTurn += 1;
       state.battleMult *= 1.35;
+    }
+    if (
+      r === 0 &&
+      role === "attack" &&
+      state.relicIds.includes("survivor_fang") &&
+      state.playerHp <= state.playerMaxHp * 0.5 &&
+      state.survivorFangHealsThisTurn < 2
+    ) {
+      state.survivorFangHealsThisTurn += 1;
+      healPlayer(state, Math.max(1, Math.floor(state.playerMaxHp * 0.06)));
     }
 
     // F-rank handling
@@ -1189,18 +1418,36 @@ export function playCardFromHand(
     }
 
     const pactBaseMult =
-      (hasBlackDouble ? 3.2 : 1) *
-      (hasBlackRot ? 2.2 : 1) *
-      (hasBlackBlitz ? (state.turn <= 2 ? 4.0 : 0.5) : 1) *
-      (hasBlackSolo && role === "attack" ? 3.5 : 1) *
-      (isRhythmBeat ? 2.5 : 1);
-    const abundantFlatAdd = hasAbundantDeck ? state.deck.length * 15 : 0;
+      state.permanentBaseMult *
+      (hasBlackDouble ? 4.5 : 1) *
+      (hasBlackRot ? 3.0 : 1) *
+      (hasBlackBlitz ? (state.turn <= 2 ? 6.0 : 0.5) : 1) *
+      (hasBlackChoker ? 5.5 : 1) *
+      (hasBlackSolo && role === "attack" ? 5.5 : 1) *
+      (isRhythmBeat ? 3.0 : 1) *
+      (penNibActiveThisPlay ? 2.5 : 1) *
+      (firstAttackRedBullActive ? 3.0 : 1) *
+      (role === "attack" &&
+      state.relicIds.includes("survivor_fang") &&
+      state.playerHp <= state.playerMaxHp * 0.5
+        ? 2.2
+        : 1) *
+      (role === "attack" &&
+      state.relicIds.includes("white_revelation_sanctuary") &&
+      state.playerShield > 0
+        ? 1.8
+        : 1);
+    const abundantFlatAdd = hasAbundantDeck ? state.deck.length * 20 : 0;
     const fBlessingCopies = state.relicIds.filter(
       (id) => id === "blessing_f_2000"
     ).length;
     const fBlessingFlatAdd =
-      fBlessingCopies > 0 ? fCardsCount * 200 * fBlessingCopies : 0;
-    const abundantMult = hasAbundantDeck ? 1 + state.deck.length * 0.1 : 1;
+      fBlessingCopies > 0 ? fCardsCount * 400 * fBlessingCopies : 0;
+    const fBlessingMult =
+      fBlessingCopies > 0 && fCardsCount > 0
+        ? Math.pow(1.35, Math.min(8, fCardsCount) * fBlessingCopies)
+        : 1;
+    const abundantMult = hasAbundantDeck ? 1 + state.deck.length * 0.15 : 1;
     const minimalistMult = hasMinimalistArt && state.deck.length <= 10 ? 2.5 : 1;
     const senpenMult = hasSenpenBanka && handCountAtPlay >= 6 ? 2.5 : 1;
     const desperateMult =
@@ -1229,6 +1476,7 @@ export function playCardFromHand(
         attackBuffMult *
         attrMult *
         fMult *
+        fBlessingMult *
         abundantMult *
         minimalistMult *
         senpenMult *
@@ -1236,24 +1484,38 @@ export function playCardFromHand(
         chainTurnMult *
         brokenBladeMult
     );
-    const scaledMult = Math.pow(combinedMult, state.battleExponent);
-    const rawOutputValue = baseOutput * scaledMult;
+    const rawOutputValue = baseOutput * combinedMult;
     const outputValue = Number.isNaN(rawOutputValue)
       ? 1
       : Number.isFinite(rawOutputValue)
         ? Math.max(1, Math.floor(rawOutputValue))
         : Infinity;
 
-    // Defense scaling stays isolated from offensive multipliers/exponents, while scaling sustainably into Endless
+    // Defense scaling stays in a balanced HP-aligned range while scaling sustainably with permanent multipliers
     const guardPactEchoMult = state.relicIds.includes("black_pact_echo") ? 0.5 : 1;
     const guardFMult = card.rank === "F" && isFInverted ? fInvertMultVal : 1;
+    const sanctuaryGuardMult = state.relicIds.includes("white_revelation_sanctuary")
+      ? 1.5
+      : 1;
+    const vowGuardMult = state.relicIds.includes("white_revelation_vow") ? 1.6 : 1;
     const guardMult = Number(
-      (attrMult * guardFMult * guardPactEchoMult * brokenBladeMult).toFixed(2)
+      (
+        attrMult *
+        guardFMult *
+        guardPactEchoMult *
+        brokenBladeMult *
+        state.battleGuardMult *
+        sanctuaryGuardMult *
+        vowGuardMult
+      ).toFixed(2)
     );
+    const totalPermMult = Math.max(
+      1,
+      state.tengenPermanentMult * state.permanentMultBonus
+    );
+    const permDefenseScale = 1 + Math.log10(totalPermMult) * 1.1;
     const guardSustainedBase =
-      rawBase +
-      Math.floor(Math.sqrt(Math.max(0, state.permanentFlatAdd)) * 1.8) +
-      Math.floor(state.playerMaxHp * 0.06);
+      (rawBase + Math.floor(state.playerMaxHp * 0.08)) * permDefenseScale;
 
     if (role === "attack") {
       // Consume nextCardMult on first attack trigger
@@ -1262,7 +1524,7 @@ export function playCardFromHand(
       // Enemy tactical defenses against heavy / single-card spam
       let enemyDefenseMult = 1;
       if (state.enemy.gimmickType === "combo_armor") {
-        enemyDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.55 : 1.4;
+        enemyDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.65 : 1.4;
       }
       if (state.enemy.gimmickType === "heavy_dampen" && card.cost >= 2) {
         enemyDefenseMult *= 0.6;
@@ -1285,12 +1547,12 @@ export function playCardFromHand(
       state.playerShield += shieldGain;
       totalShieldThisAction += shieldGain;
       if (hasLogicWall) {
-        state.battleMult *= 1.25;
+        state.battleGuardMult *= 1.25;
+        state.battleMult *= 1.3;
       }
       if (hasIronWallArt && card.attribute === "matter") {
-        state.permanentFlatAdd += 80;
-        state.battleFlatAdd += 80;
-        state.battleMult *= 1.3;
+        state.battleGuardMult *= 1.35;
+        state.battleMult *= 1.35;
       }
     } else {
       // SKILL execution (draw / energy / weaken / retrigger grants run once on r === 0 to stop infinite loops!)
@@ -1309,6 +1571,7 @@ export function playCardFromHand(
             nextDraw = res.nextDraw;
             nextDiscard = res.nextDiscard;
             nextHand = res.nextHand;
+            applyDrawRelicEffects(state, res.newlyDrawn, res.reshuffleCount, getRng());
           }
           break;
         }
@@ -1325,7 +1588,6 @@ export function playCardFromHand(
           break;
         case "retrigger_next":
           if (r === 0) {
-            // Multiplicative stacking: e.g., 2x activation -> +1 (2x) yields 2*2 = 4 activations!
             const nextTotalActivations = retriggers * (1 + card.skillPower);
             state.nextCardRetrigger = Math.min(
               11,
@@ -1342,14 +1604,15 @@ export function playCardFromHand(
           state.battleMult = state.battleMult * card.skillPower;
           let burstDefenseMult = 1;
           if (state.enemy.gimmickType === "combo_armor") {
-            burstDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.55 : 1.4;
+            burstDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.65 : 1.4;
           }
           if (state.enemy.gimmickType === "heavy_dampen" && card.cost >= 2) {
             burstDefenseMult *= 0.6;
           }
           const rawBurst =
             (rawBase + state.battleFlatAdd) *
-            Math.pow(state.battleMult, state.battleExponent) *
+            state.permanentBaseMult *
+            state.battleMult *
             burstDefenseMult;
           const burstDmg = Number.isNaN(rawBurst)
             ? 1
@@ -1361,7 +1624,7 @@ export function playCardFromHand(
           break;
         }
         case "chaos_curse":
-          if (r === 0 && !hasLotus && !isFInverted) {
+          if (r === 0 && !hasLotus && !hasWhiteBlank && !isFInverted) {
             applySelfHarm(state, 3);
           }
           state.nextCardMult *= isFInverted
@@ -1370,7 +1633,7 @@ export function playCardFromHand(
           break;
         case "english_link": {
           const engInHand = nextHand.filter((c) =>
-            /^[A-Za-z][A-Za-z0-9-]*$/.test(c.term)
+            isEnglishCardTerm(c.term)
           ).length;
           state.battleMult = state.battleMult + card.skillPower * (engInHand + 1);
           if (r === 0) {
@@ -1386,18 +1649,22 @@ export function playCardFromHand(
             nextDraw = res.nextDraw;
             nextDiscard = res.nextDiscard;
             nextHand = res.nextHand;
+            applyDrawRelicEffects(state, res.newlyDrawn, res.reshuffleCount, getRng());
           }
           break;
         }
         case "english_discount":
           if (r === 0) {
-            state.allCardCostDiscountThisTurn = Math.min(
+            state.nextCardCostDiscountThisTurn = Math.min(
               3,
-              state.allCardCostDiscountThisTurn + 1
+              state.nextCardCostDiscountThisTurn + 1
+            );
+            state.englishCostDiscountThisTurn = Math.min(
+              3,
+              state.englishCostDiscountThisTurn + 1
             );
           }
-          state.permanentFlatAdd += card.skillPower;
-          state.battleFlatAdd += card.skillPower;
+          state.battleMult *= card.skillPower;
           break;
         case "english_purge": {
           if (r === 0) {
@@ -1420,23 +1687,26 @@ export function playCardFromHand(
           break;
         }
         case "desperation_mult":
-          if (r === 0 && state.playerHp <= state.playerMaxHp * 0.3) {
+          if (r === 0 && state.playerHp <= state.playerMaxHp * 0.5) {
             state.nextAttackMult *= card.skillPower;
           }
           break;
         case "sacrifice_mult":
           if (r === 0) {
-            const sacLoss = Math.max(1, Math.floor(state.playerHp * 0.5));
+            const sacLoss = Math.max(1, Math.floor(state.playerHp * 0.4));
             const actual = applySelfHarm(state, sacLoss);
+            state.playerShield += actual;
             state.nextAttackMult *= card.skillPower;
-            state.logs.unshift(`生贄：HPを ${actual} 捧げ、次攻撃 ×${card.skillPower}！`);
+            state.logs.unshift(
+              `生贄：HPを ${actual} 捧げて同値の盾を得、次攻撃 ×${card.skillPower}！`
+            );
           }
           break;
         case "vengeance_flat":
           if (r === 0) {
             const bonus = state.selfHarmHpTotalInBattle * card.skillPower;
-            state.nextAttackFlatAdd += bonus;
-            state.logs.unshift(`復讐：次攻撃の基礎値 +${bonus}！`);
+            state.nextAttackMult *= 1 + bonus;
+            state.logs.unshift(`復讐：次攻撃倍率 +${bonus.toFixed(1)}！`);
           }
           break;
         case "f_resonance":
@@ -1478,8 +1748,8 @@ export function playCardFromHand(
           if (r === 0) {
             state.nextAttackMult *= card.skillPower;
             state.pendingSelfHarmPctAfterAttack = Math.min(
-              30,
-              state.pendingSelfHarmPctAfterAttack + 10
+              24,
+              state.pendingSelfHarmPctAfterAttack + 8
             );
           }
           break;
@@ -1519,27 +1789,26 @@ export function playCardFromHand(
             const mimicOut = Number.isFinite(rawMimic)
               ? Math.max(1, Math.floor(rawMimic))
               : Infinity;
+            const pctLabel = Math.round(card.skillPower * 100);
             if (state.lastCombatAction.role === "attack") {
               applyDamageToEnemy(state, mimicOut, false);
               totalDamageThisAction += mimicOut;
               state.logs.unshift(
-                `模倣再現！直前攻撃の50%（${formatJapaneseNumber(mimicOut).text} DMG）！`
+                `模倣再現！直前攻撃の${pctLabel}%（${formatJapaneseNumber(mimicOut).text} DMG）！`
               );
             } else {
               state.playerShield += mimicOut;
               totalShieldThisAction += mimicOut;
               state.logs.unshift(
-                `模倣再現！直前防御の50%（盾 +${formatJapaneseNumber(mimicOut).text}）！`
+                `模倣再現！直前防御の${pctLabel}%（盾 +${formatJapaneseNumber(mimicOut).text}）！`
               );
             }
           }
           break;
         case "pursuit_combo":
           if (r === 0 && state.attacksPlayedThisTurn > 0) {
-            state.nextCardRetrigger = Math.min(
-              11,
-              state.nextCardRetrigger + state.attacksPlayedThisTurn * card.skillPower
-            );
+            const stacks = Math.min(8, state.attacksPlayedThisTurn);
+            state.nextAttackMult *= Math.pow(card.skillPower, stacks);
           }
           break;
         case "self_harm_mult":
@@ -1566,6 +1835,12 @@ export function playCardFromHand(
               nextDraw = subDraw.nextDraw;
               nextDiscard = subDraw.nextDiscard;
               nextHand = subDraw.nextHand;
+              applyDrawRelicEffects(
+                state,
+                subDraw.newlyDrawn,
+                subDraw.reshuffleCount,
+                getRng()
+              );
             }
             break;
           }
@@ -1601,23 +1876,28 @@ export function playCardFromHand(
       }
     }
 
+    const isPierceBurst = role === "skill" && card.skillType === "pierce_burst";
     lastBreakdown = {
-      baseOutput: role === "guard" ? Math.floor(rawBase) : Math.floor(baseOutput),
+      baseOutput:
+        role === "guard"
+          ? Math.floor(rawBase)
+          : isPierceBurst
+            ? Math.floor(rawBase + state.battleFlatAdd)
+            : Math.floor(baseOutput),
       flatAdd: role === "guard" ? 0 : state.battleFlatAdd,
       multiplier:
         role === "guard"
           ? guardMult
-          : role === "skill" && card.skillType === "pierce_burst"
-            ? state.battleMult
+          : isPierceBurst
+            ? state.permanentBaseMult * state.battleMult
             : combinedMult,
-      exponent: role === "guard" ? 1 : state.battleExponent,
       retriggers,
       finalOutput:
         role === "attack" || totalDamageThisAction > 0
           ? totalDamageThisAction
           : role === "guard" || totalShieldThisAction > 0
             ? totalShieldThisAction
-            : Math.floor(scaledMult),
+            : Math.floor(combinedMult),
       role,
       cardTerm: card.term,
       didDamage: totalDamageThisAction > 0,
@@ -1637,8 +1917,28 @@ export function playCardFromHand(
     state.logs.unshift(`諸刃の反動！HPを ${actual} 失った！`);
   }
   if (role === "attack") {
+    if (!state.firstAttackUsedInBattle) {
+      state.firstAttackUsedInBattle = true;
+    }
     state.attacksPlayedThisTurn += 1;
+    state.totalAttacksPlayedInRun += 1;
     state.lastCombatAction = { role: "attack", output: totalDamageThisAction };
+    if (
+      state.relicIds.includes("fountain_pen_nib") &&
+      state.totalAttacksPlayedInRun % 6 === 0
+    ) {
+      state.penNibReady = true;
+      state.logs.unshift("万年筆の先：次の『こうげき』が再発動+1 ＆ 出力 ×2.5！");
+    }
+    if (
+      state.relicIds.includes("pinwheel_blade") &&
+      state.attacksPlayedThisTurn % 3 === 0
+    ) {
+      state.battleMult *= 1.5;
+      const pinShield = Math.max(1, Math.floor(state.playerMaxHp * 0.12));
+      state.playerShield += pinShield;
+      state.logs.unshift(`風車の太刀：3連撃達成！乗算×1.5 ＆ 盾+${pinShield}！`);
+    }
   } else if (role === "guard") {
     state.guardsPlayedInBattle += 1;
     state.lastCombatAction = { role: "guard", output: totalShieldThisAction };
@@ -1649,7 +1949,7 @@ export function playCardFromHand(
     }
   }
 
-  // 白き天啓：言霊の環 (3+ attrs in one turn -> energy+2, draw 2, permanent mult x1.15)
+  // 白き天啓：言霊の環 (3+ attrs in one turn -> energy+2, draw 2, permanent mult x1.22)
   if (
     state.relicIds.includes("white_revelation_ring") &&
     !state.whiteRingTriggeredThisTurn &&
@@ -1657,8 +1957,8 @@ export function playCardFromHand(
   ) {
     state.whiteRingTriggeredThisTurn = true;
     state.energy += 2;
-    state.permanentMultBonus = Number((state.permanentMultBonus * 1.15).toFixed(3));
-    state.battleMult = state.battleMult * 1.15;
+    state.permanentMultBonus = Number((state.permanentMultBonus * 1.22).toFixed(4));
+    state.battleMult = state.battleMult * 1.22;
     const ringDraw = drawIntoHand(
       nextDraw,
       nextDiscard,
@@ -1671,7 +1971,23 @@ export function playCardFromHand(
     nextDraw = ringDraw.nextDraw;
     nextDiscard = ringDraw.nextDiscard;
     nextHand = ringDraw.nextHand;
-    state.logs.unshift("言霊の環発動！コスト+2・2枚ドロー ＆ 永続乗算 ×1.15！");
+    applyDrawRelicEffects(state, ringDraw.newlyDrawn, ringDraw.reshuffleCount, getRng());
+    state.logs.unshift("言霊の環発動！コスト+2・2枚ドロー ＆ 永続乗算 ×1.22！");
+  }
+
+  // 包帯の写本 (SR/SSR/UR発動時、手札の他札1枚のコストを今ターン0にする)
+  if (
+    state.relicIds.includes("mummified_codex") &&
+    (card.rank === "SR" || card.rank === "SSR" || card.rank === "UR")
+  ) {
+    const candidates = nextHand.filter(
+      (c) => !state.mummifiedZeroIds.includes(c.instanceId) && getEffectiveCardCost(state, c) > 0
+    );
+    if (candidates.length > 0) {
+      const picked = candidates[Math.floor(getRng()() * candidates.length)];
+      state.mummifiedZeroIds = [...state.mummifiedZeroIds, picked.instanceId];
+      state.logs.unshift(`包帯の写本：『${picked.term}』のコストが今ターン0になった！`);
+    }
   }
 
   state.hand = nextHand;
@@ -1681,6 +1997,28 @@ export function playCardFromHand(
   state.cardsPlayedThisTurn += 1;
   state.totalCardsPlayedInBattle += 1;
   state.totalCardsPlayedInRun += 1;
+
+  // 連環のインク瓶 (ラン累計6枚ごとに1ドロー & コスト+1)
+  if (
+    state.relicIds.includes("ink_bottle_chain") &&
+    state.totalCardsPlayedInRun % 6 === 0
+  ) {
+    state.energy += 1;
+    const inkDraw = drawIntoHand(
+      state.drawPile,
+      state.discardPile,
+      state.hand,
+      1,
+      getRng(),
+      handLimit,
+      hasWhiteBlank
+    );
+    state.drawPile = inkDraw.nextDraw;
+    state.discardPile = inkDraw.nextDiscard;
+    state.hand = inkDraw.nextHand;
+    applyDrawRelicEffects(state, inkDraw.newlyDrawn, inkDraw.reshuffleCount, getRng());
+    state.logs.unshift("連環のインク瓶発動！1枚ドロー ＆ コスト+1！");
+  }
 
   // Four Elements harmony check
   if (!state.attrsPlayedThisBattle.includes(card.attribute)) {
@@ -1693,10 +2031,9 @@ export function playCardFromHand(
   ) {
     state.fourElementsTriggeredThisBattle = true;
     state.battleMult = state.battleMult * 3.5;
-    state.permanentExponentBonus = Number((state.permanentExponentBonus + 0.03).toFixed(3));
-    state.battleExponent = Number((state.battleExponent + 0.2).toFixed(3));
+    state.permanentMultBonus = Number((state.permanentMultBonus * 1.85).toFixed(4));
     state.logs.unshift(
-      `四属性の調和発動！戦闘乗算×3.5・戦闘指数+0.2 ＆ 永続指数+0.03（現在 ^${state.battleExponent}）`
+      "四属性の調和発動！戦闘乗算×3.5 ＆ 永続初期乗算 ×1.85！"
     );
   }
 
@@ -1707,30 +2044,26 @@ export function playCardFromHand(
     state.logs.unshift("一気呵成発動！乗算×2.5 ＆ 次カード再発動+1！");
   }
 
-  // 天元の方程式 (Persistent across run: every 6 cards played adds +2 to permanent start multiplier!)
+  // 天元の方程式 (Persistent across run: every 8 cards played multiplies permanent start mult by 1.45)
   if (
     state.relicIds.includes("tengen_equation") &&
-    state.totalCardsPlayedInRun % 6 === 0
+    state.totalCardsPlayedInRun % 8 === 0
   ) {
-    const prevTengen =
-      state.tengenPermanentMult <= 1 ? 0 : state.tengenPermanentMult;
-    state.tengenPermanentMult = prevTengen + 2;
-    state.battleMult = state.battleMult + 2;
+    state.tengenPermanentMult = Number((state.tengenPermanentMult * 1.45).toFixed(4));
+    state.battleMult = state.battleMult * 1.45;
     state.logs.unshift(
-      `天元の方程式（永続）発動！永続乗算 ×${formatJapaneseNumber(state.tengenPermanentMult).text}（6枚達成×2）に到達！`
+      `天元の方程式（永続）発動！永続乗算 ×${formatJapaneseNumber(state.tengenPermanentMult).text}（8枚達成×1.45）！`
     );
   }
 
-  // 対数の螺旋 (Every 12 cards across run -> permanent exponent +0.02)
+  // 対数の螺旋 (Every 10 cards across run -> permanent mult x1.38)
   if (
     state.relicIds.includes("logarithm_spiral") &&
-    state.totalCardsPlayedInRun % 12 === 0
+    state.totalCardsPlayedInRun % 10 === 0
   ) {
-    state.permanentExponentBonus = Number((state.permanentExponentBonus + 0.02).toFixed(3));
-    state.battleExponent = Number((state.battleExponent + 0.02).toFixed(3));
-    state.logs.unshift(
-      `対数の螺旋発動！永続指数 +0.02（現在 ^${state.battleExponent}）`
-    );
+    state.permanentMultBonus = Number((state.permanentMultBonus * 1.38).toFixed(4));
+    state.battleMult = state.battleMult * 1.38;
+    state.logs.unshift("対数の螺旋発動！永続初期乗算 ×1.38 ＆ 戦闘乗算 ×1.38！");
   }
 
   state.rngStep = rngStep;
@@ -1773,10 +2106,45 @@ function handleEnemyDefeated(prev: RunState, save?: PlayerSaveData): RunState {
   const state = { ...prev, logs: [...prev.logs] };
   state.logs.unshift(`${state.enemy.name} を撃破した！`);
 
+  // Standard victory recovery (12% MaxHP, halved to 6% under black_pact_ascetic)
+  const baseVictoryPct = state.relicIds.includes("black_pact_ascetic") ? 0.06 : 0.12;
+  const baseVictoryHealed = healPlayer(
+    state,
+    Math.max(1, Math.floor(state.playerMaxHp * baseVictoryPct))
+  );
+  if (baseVictoryHealed > 0) {
+    state.logs.unshift(`勝利休息：HPが ${baseVictoryHealed} 回復した。`);
+  }
+
+  if (
+    state.relicIds.includes("blood_meat_relic") &&
+    state.playerHp <= state.playerMaxHp * 0.5
+  ) {
+    const meatHeal = healPlayer(
+      state,
+      Math.max(1, Math.floor(state.playerMaxHp * 0.25))
+    );
+    if (meatHeal > 0) {
+      state.logs.unshift(`渇血の肉片：ピンチのため追加でHP +${meatHeal} 回復！`);
+    }
+  }
+
   if (state.relicIds.includes("life_spell")) {
-    state.playerMaxHp += 6;
-    state.playerHp = Math.min(state.playerMaxHp, state.playerHp + 18);
-    state.logs.unshift("生命の綴り：最大HP +6、HP 18 回復！");
+    state.playerMaxHp += 12;
+    const lifeHeal = healPlayer(
+      state,
+      Math.max(1, Math.floor(state.playerMaxHp * 0.15))
+    );
+    state.logs.unshift(`生命の綴り：最大HP +12、HP ${lifeHeal} 回復！`);
+  }
+
+  if (state.relicIds.includes("alembic_remnant") && state.energy > 0) {
+    const cappedEnergy = Math.min(12, state.energy);
+    const mult = Math.pow(1.15, cappedEnergy);
+    state.permanentMultBonus = Number((state.permanentMultBonus * mult).toFixed(4));
+    state.logs.unshift(
+      `残余の錬金釜：余剰コスト${state.energy}により永続乗算 ×${mult.toFixed(2)}！`
+    );
   }
 
   // Check if stage boss defeated (and not yet in endless)
@@ -1982,30 +2350,46 @@ function drawTurnOpeningHand(
   relicIds: string[],
   desiredCount: number,
   noiseSuffix: string,
-  rng: () => number
-): { hand: BattleCard[]; nextDraw: BattleCard[]; nextDiscard: BattleCard[] } {
+  rng: () => number,
+  existingHand: BattleCard[] = []
+): {
+  hand: BattleCard[];
+  nextDraw: BattleCard[];
+  nextDiscard: BattleCard[];
+  newlyDrawn: BattleCard[];
+  reshuffleCount: number;
+} {
   const handLimit = getHandLimit(relicIds);
   const hasWhiteBlank = relicIds.includes("white_revelation_blank");
   const hasBlackDouble = relicIds.includes("black_pact_double");
   const maxDrawCapacity = hasBlackDouble ? Math.max(0, handLimit - 1) : handLimit;
-  const drawTarget = Math.min(desiredCount, maxDrawCapacity);
+  const drawTarget = Math.min(desiredCount, Math.max(0, maxDrawCapacity - existingHand.length));
   const res = drawIntoHand(
     drawPile,
     discardPile,
-    [],
+    existingHand,
     drawTarget,
     rng,
     maxDrawCapacity,
     hasWhiteBlank
   );
   const hand = [...res.nextHand];
-  if (hasBlackDouble) {
+  const newlyDrawn = [...res.newlyDrawn];
+  if (hasBlackDouble && hand.length < handLimit) {
     const noise = getWordMaster("えっと");
     if (noise) {
-      hand.push(toBattleCard(noise, 0, noiseSuffix));
+      const noiseCard = toBattleCard(noise, 0, noiseSuffix);
+      hand.push(noiseCard);
+      newlyDrawn.push(noiseCard);
     }
   }
-  return { hand, nextDraw: res.nextDraw, nextDiscard: res.nextDiscard };
+  return {
+    hand,
+    nextDraw: res.nextDraw,
+    nextDiscard: res.nextDiscard,
+    newlyDrawn,
+    reshuffleCount: res.reshuffleCount,
+  };
 }
 
 export function endPlayerTurn(prev: RunState): RunState {
@@ -2029,11 +2413,44 @@ export function endPlayerTurn(prev: RunState): RunState {
     }
   }
 
+  // White Flow: leftover cards boost next turn draw & permanent multiplier
+  let flowDrawBonus = 0;
+  if (state.relicIds.includes("white_revelation_flow") && state.hand.length > 0) {
+    flowDrawBonus = Math.min(3, state.hand.length);
+    const flowMult = Math.pow(1.05, flowDrawBonus);
+    state.permanentMultBonus = Number((state.permanentMultBonus * flowMult).toFixed(4));
+    state.logs.unshift(
+      `流転の書庫：残手札${state.hand.length}枚により次Tドロー+${flowDrawBonus} ＆ 永続乗算 ×${flowMult.toFixed(2)}！`
+    );
+  }
+
+  // Iron Anchor Amulet: gain 20% MaxHP shield if ending turn with 0 shield
+  if (state.relicIds.includes("iron_anchor_amulet") && state.playerShield === 0) {
+    const anchorShield = Math.max(1, Math.floor(state.playerMaxHp * 0.2));
+    state.playerShield += anchorShield;
+    state.logs.unshift(`鉄錨の護符：無防備を補いシールド +${anchorShield}！`);
+  }
+
   // Execute enemy intent
   const intent = getEnemyCurrentIntent(state);
-  const nextDiscard = [...state.discardPile, ...state.hand, ...state.playedThisTurn];
+  const keepHand = state.relicIds.includes("bookmark_keep");
+  const retainedHand = keepHand ? [...state.hand] : [];
+  const nextDiscard = keepHand
+    ? [...state.discardPile, ...state.playedThisTurn]
+    : [...state.discardPile, ...state.hand, ...state.playedThisTurn];
   const nextDraw = [...state.drawPile];
   state.playedThisTurn = [];
+
+  if (keepHand) {
+    const keepIds = new Set(retainedHand.map((c) => c.instanceId));
+    const filteredOverrides: Record<string, number> = {};
+    for (const [id, val] of Object.entries(state.cardCostOverrides)) {
+      if (keepIds.has(id)) filteredOverrides[id] = val;
+    }
+    state.cardCostOverrides = filteredOverrides;
+  } else {
+    state.cardCostOverrides = {};
+  }
 
   switch (intent.type) {
     case "attack":
@@ -2086,9 +2503,13 @@ export function endPlayerTurn(prev: RunState): RunState {
     state.relicIds.includes("white_revelation_serene") &&
     !state.relicIds.includes("black_pact_ascetic")
   ) {
-    const sereneHeal = Math.max(1, Math.floor(state.playerMaxHp * 0.15));
-    state.playerHp = Math.min(state.playerMaxHp, state.playerHp + sereneHeal);
-    state.logs.unshift(`常世の静謐：HPを ${sereneHeal} 回復した。`);
+    const sereneHeal = healPlayer(
+      state,
+      Math.max(1, Math.floor(state.playerMaxHp * 0.15))
+    );
+    if (sereneHeal > 0) {
+      state.logs.unshift(`常世の静謐：HPを ${sereneHeal} 回復した。`);
+    }
   }
 
   // Anti-stall enrage: from Turn 4 onward, enemy ATK doubles exponentially relative to its max base ATK so stall/guard loops reach lethal by Turn 7-8
@@ -2105,31 +2526,59 @@ export function endPlayerTurn(prev: RunState): RunState {
   }
 
   // Next turn setup
+  const finishedTurnCards = state.cardsPlayedThisTurn;
+  state.prevTurnCardsPlayed = finishedTurnCards;
   state.turn += 1;
   state.cardsPlayedThisTurn = 0;
-  const carryShield = state.relicIds.includes("white_revelation_sanctuary")
-    ? Math.floor(state.playerShield * 0.5)
-    : 0;
+
+  const hasSanctuary = state.relicIds.includes("white_revelation_sanctuary");
+  const hasAdamant = state.relicIds.includes("adamant_scale");
+  const shieldCarryRate = Math.max(
+    hasAdamant ? 0.75 : 0,
+    hasSanctuary ? 0.6 : 0
+  );
+  const carryShield =
+    shieldCarryRate > 0 ? Math.floor(state.playerShield * shieldCarryRate) : 0;
   state.playerShield = carryShield;
   if (carryShield > 0) {
-    state.battleFlatAdd += carryShield;
-    state.logs.unshift(
-      `聖域の加護：余剰シールド +${carryShield} 持ち越し ＆ 一時基礎 +${carryShield}！`
-    );
+    state.logs.unshift(`シールド持ち越し：+${carryShield} を次ターンへ継承！`);
   }
+
+  const carryEnergy = state.relicIds.includes("ice_hourglass")
+    ? Math.min(8, Math.max(0, state.energy))
+    : 0;
+  state.carryOverEnergy = carryEnergy;
+
   state.enemyWeakenPct = 0;
   state.freeExtremeUsedThisTurn = false;
   state.highRankCostDiscountThisTurn = 0;
-  state.allCardCostDiscountThisTurn = 0;
+  state.englishCostDiscountThisTurn = 0;
+  state.nextCardCostDiscountThisTurn = 0;
   state.zeroCostTriggersThisTurn = 0;
+  state.tsuneRebelDrawsThisTurn = 0;
   state.librarySkillDrawsThisTurn = 0;
+  state.vowShieldAttackCountThisTurn = 0;
+  state.survivorFangHealsThisTurn = 0;
+  state.sereneHealTriggersThisTurn = 0;
+  state.firstCost2PlusUsedThisTurn = false;
+  state.compassTriggeredThisTurn = false;
   state.whiteRingTriggeredThisTurn = false;
   state.staircaseStep = 0;
   state.skillsPlayedThisTurn = 0;
   state.attacksPlayedThisTurn = 0;
   state.energySpentThisTurn = 0;
   state.attrsPlayedThisTurn = [];
+  state.posPlayedThisTurn = [];
+  state.mummifiedZeroIds = [];
   state.enemyIntentIdx += 1;
+
+  if (
+    state.relicIds.includes("white_revelation_astral") &&
+    state.turn % 2 === 0
+  ) {
+    state.battleMult *= 1.8;
+    state.logs.unshift("星詠みの連環発動！偶数ターンによりコスト+2・ドロー+2 ＆ 戦闘乗算 ×1.8！");
+  }
 
   // Black Pact blitz turn 3+ penalty: inject 2 F cards
   if (state.relicIds.includes("black_pact_blitz") && state.turn >= 3) {
@@ -2141,14 +2590,21 @@ export function endPlayerTurn(prev: RunState): RunState {
     }
   }
 
-  const drawCount = getTurnDrawCount(state.relicIds, false);
+  const drawCount = getTurnDrawCount(
+    state.relicIds,
+    false,
+    state.turn,
+    finishedTurnCards,
+    flowDrawBonus
+  );
   const drawnRes = drawTurnOpeningHand(
     nextDraw,
     nextDiscard,
     state.relicIds,
     drawCount,
     `pact_f_${state.turn}`,
-    getRng()
+    getRng(),
+    retainedHand
   );
   state.hand = drawnRes.hand;
   state.drawPile = drawnRes.nextDraw;
@@ -2156,7 +2612,11 @@ export function endPlayerTurn(prev: RunState): RunState {
 
   const turnEnergy = getTurnMaxEnergy(state.relicIds, state.turn);
   state.maxEnergy = turnEnergy;
-  state.energy = turnEnergy;
+  state.energy = turnEnergy + carryEnergy;
+  if (carryEnergy > 0) {
+    state.logs.unshift(`氷結の砂時計：余剰コスト +${carryEnergy} を持ち越し！`);
+  }
+  applyDrawRelicEffects(state, drawnRes.newlyDrawn, drawnRes.reshuffleCount, getRng());
   state.rngStep = rngStep;
   state.logs = state.logs.slice(0, 20);
   return state;
@@ -2170,19 +2630,40 @@ export function chooseCardReward(
   const state = { ...prev, deck: [...prev.deck], logs: [...prev.logs] };
   if (card) {
     state.deck.push(card);
-  } else if (state.relicIds.includes("black_pact_ascetic")) {
-    state.permanentMultBonus = Number((state.permanentMultBonus * 1.4).toFixed(2));
-    state.permanentFlatAdd += 150;
-    state.logs.unshift(
-      "禁欲の代償発動！カード見送りにより永続乗算 ×1.4 ＆ 永続基礎 +150！"
-    );
   } else {
-    const healAmt = 6;
-    state.playerHp = Math.min(state.playerMaxHp, state.playerHp + healAmt);
-    state.logs.unshift(`報酬を見送り、呼吸を整えて HP+${healAmt} 回復した。`);
+    if (state.relicIds.includes("black_pact_ascetic")) {
+      const hpBoost = Math.max(4, Math.floor(state.playerMaxHp * 0.1));
+      state.playerMaxHp += hpBoost;
+      state.playerHp = Math.min(state.playerMaxHp, state.playerHp + hpBoost);
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.45).toFixed(4));
+      state.logs.unshift(
+        `禁欲の代償発動！カード見送りにより永続乗算 ×1.45 ＆ 最大HP +${hpBoost}！`
+      );
+    } else {
+      const healed = healPlayer(state, 6);
+      state.logs.unshift(`報酬を見送り、呼吸を整えて HP+${healed} 回復した。`);
+    }
+    if (state.relicIds.includes("singing_chalice")) {
+      const chaliceHp = Math.max(4, Math.floor(state.playerMaxHp * 0.1));
+      state.playerMaxHp += chaliceHp;
+      state.playerHp = Math.min(state.playerMaxHp, state.playerHp + chaliceHp);
+      state.permanentMultBonus = Number((state.permanentMultBonus * 1.22).toFixed(4));
+      state.logs.unshift(
+        `響きの聖杯発動！見送りにより最大HP +${chaliceHp} ＆ 永続乗算 ×1.22！`
+      );
+    }
   }
 
-  // Roll 3 unowned normal relics
+  // In Endless mode, relics drop only every 3 battles (on '無間の主' boss defeat)
+  if (state.isEndless) {
+    const endlessDepth = state.floor - state.totalStageFloors;
+    if (endlessDepth % 3 !== 0) {
+      state.relicChoices = [];
+      return advanceToNextFloorOrEvent(state);
+    }
+  }
+
+  // Roll 3 unowned normal relics (Endless bosses guarantee 2 unique + 1 repeatable slot)
   let rngStep = state.rngStep;
   const nextRand = () => {
     const r = createSeededRng(state.rngSeed + rngStep * 7919);
@@ -2197,9 +2678,15 @@ export function chooseCardReward(
   const shuffledRepeat = shuffleWithRng(REPEATABLE_RELICS, () => nextRand());
 
   const choices: RelicDef[] = [];
-  if (shuffledUnique.length >= 3) {
+  if (state.isEndless) {
+    choices.push(...shuffledUnique.slice(0, 2));
+    for (const rep of shuffledRepeat) {
+      if (choices.length >= 3) break;
+      choices.push(rep);
+    }
+  } else if (shuffledUnique.length >= 3) {
     if (
-      (state.floor >= 2 || state.isEndless) &&
+      state.floor >= 2 &&
       shuffledRepeat.length > 0 &&
       nextRand() < 0.5
     ) {
@@ -2237,13 +2724,19 @@ export function chooseRelicReward(
     if (prev.relicIds.includes("black_pact_ascetic")) {
       nextLogs.unshift("遺物を見送った（禁欲の代償によりHP回復は無効）。");
     } else {
-      nextHp = Math.min(nextMaxHp, nextHp + 8);
-      nextLogs.unshift("遺物を受け取らずに見送った（HP +8 回復）。");
+      const rawHeal = prev.relicIds.includes("blood_meat_relic") ? 12 : 8;
+      nextHp = Math.min(nextMaxHp, nextHp + rawHeal);
+      nextLogs.unshift(`遺物を受け取らずに見送った（HP +${rawHeal} 回復）。`);
     }
   } else if (relic.id === "blood_ink_pact") {
-    nextMaxHp += 15;
-    nextHp += 15;
-    nextLogs.unshift("『血染めの筆』を獲得！最大HP +15（代償：毎カードHP-5）。");
+    nextMaxHp += 25;
+    nextHp += 25;
+    nextLogs.unshift("『血染めの筆』を獲得！最大HP +25（毎カード自傷HP4＆戦闘乗算×1.25）。");
+  } else if (relic.id === "blessing_exp_015") {
+    const hpUp = Math.max(5, Math.floor(nextMaxHp * 0.15));
+    nextMaxHp += hpUp;
+    nextHp += hpUp;
+    nextLogs.unshift(`『次元の栞』を獲得！永続乗算 ×5.5 ＆ 最大HP +${hpUp}！`);
   }
 
   const state: RunState = {
@@ -2254,20 +2747,22 @@ export function chooseRelicReward(
     relicIds: relic ? [...prev.relicIds, relic.id] : prev.relicIds,
     tengenPermanentMult:
       relic?.id === "tengen_equation"
-        ? Math.max(2, prev.tengenPermanentMult)
+        ? Math.max(1.45, prev.tengenPermanentMult)
         : prev.tengenPermanentMult,
     permanentFlatAdd:
       relic?.id === "blessing_flat_1000"
-        ? prev.permanentFlatAdd + 100
+        ? prev.permanentFlatAdd + 300
         : prev.permanentFlatAdd,
+    permanentBaseMult:
+      relic?.id === "blessing_flat_1000"
+        ? Number((prev.permanentBaseMult * 3.0).toFixed(4))
+        : prev.permanentBaseMult,
     permanentMultBonus:
       relic?.id === "blessing_mult_2"
-        ? Number((prev.permanentMultBonus * 1.5).toFixed(3))
-        : prev.permanentMultBonus,
-    permanentExponentBonus:
-      relic?.id === "blessing_exp_015"
-        ? Number((prev.permanentExponentBonus + 0.015).toFixed(3))
-        : prev.permanentExponentBonus,
+        ? Number((prev.permanentMultBonus * 4.0).toFixed(4))
+        : relic?.id === "blessing_exp_015"
+          ? Number((prev.permanentMultBonus * 5.5).toFixed(4))
+          : prev.permanentMultBonus,
   };
   return advanceToNextFloorOrEvent(state);
 }
@@ -2282,7 +2777,9 @@ export function getPostFloorEvent(
   if (!isEndless && floor >= totalStageFloors) return null;
   if (isEndless) {
     const depth = floor - totalStageFloors;
-    return depth % 2 === 1 ? "library" : "covenant";
+    if (depth % 6 === 2) return "library";
+    if (depth % 6 === 5) return "covenant";
+    return null;
   }
   if (floor === totalStageFloors - 1) return "library";
   if (totalStageFloors >= 6 && floor === 3) return "library";
@@ -2491,7 +2988,7 @@ export function proceedNextBattleFloor(
     ];
   }
 
-  const drawCount = getTurnDrawCount(prev.relicIds, true);
+  const drawCount = getTurnDrawCount(prev.relicIds, true, 1);
   const openingRes = drawTurnOpeningHand(
     drawPile,
     [],
@@ -2507,24 +3004,28 @@ export function proceedNextBattleFloor(
   const turnEnergy = getTurnMaxEnergy(prev.relicIds, 1);
 
   let startMult = 1;
-  if (prev.relicIds.includes("black_pact_glass")) startMult *= 5;
-  if (prev.relicIds.includes("black_pact_truncate")) startMult *= 4;
-  if (prev.relicIds.includes("white_revelation_omega")) startMult *= 2.2;
+  if (prev.relicIds.includes("black_pact_glass")) startMult *= 7.5;
+  if (prev.relicIds.includes("black_pact_truncate")) startMult *= 5.5;
+  if (prev.relicIds.includes("black_pact_chaos_eye")) startMult *= 5.5;
+  if (prev.relicIds.includes("black_pact_berserk_stone")) startMult *= 2.5;
+  if (prev.relicIds.includes("white_revelation_omega")) startMult *= 1.8;
   if (prev.relicIds.includes("library_master")) {
     startMult *= 1 + Math.floor(prev.ownedVocabularyCount / 10) * 0.5;
   }
   startMult = startMult * prev.tengenPermanentMult * prev.permanentMultBonus;
 
   const initialShield =
-    (prev.relicIds.includes("black_pact_rot") ? 25 : 0) +
-    (prev.relicIds.includes("white_revelation_sanctuary")
+    (prev.relicIds.includes("black_pact_rot")
       ? Math.floor(prev.playerMaxHp * 0.25)
+      : 0) +
+    (prev.relicIds.includes("white_revelation_sanctuary")
+      ? Math.floor(prev.playerMaxHp * 0.3)
+      : 0) +
+    (prev.relicIds.includes("iron_anchor_amulet")
+      ? Math.floor(prev.playerMaxHp * 0.35)
       : 0);
-  const startFlatAdd =
-    prev.permanentFlatAdd +
-    (prev.relicIds.includes("white_revelation_sanctuary") ? initialShield : 0);
+  const startFlatAdd = prev.permanentFlatAdd;
 
-  const startExponent = Number((1 + prev.permanentExponentBonus).toFixed(3));
   const startLogs = [
     `第${nextFloor}階${isEndless ? "（無間）" : ""}：${nextEnemy.name} 出現！`,
   ];
@@ -2542,16 +3043,18 @@ export function proceedNextBattleFloor(
     }
   }
 
-  return {
+  const nextState: RunState = {
     ...prev,
     phase: "battle",
     floor: nextFloor,
     isEndless,
     turn: 1,
     cardsPlayedThisTurn: 0,
+    prevTurnCardsPlayed: 0,
     totalCardsPlayedInBattle: 0,
     playerShield: initialShield,
     energy: turnEnergy,
+    carryOverEnergy: 0,
     maxEnergy: turnEnergy,
     drawPile: remaining,
     hand,
@@ -2559,7 +3062,7 @@ export function proceedNextBattleFloor(
     playedThisTurn: [],
     battleFlatAdd: startFlatAdd,
     battleMult: startMult,
-    battleExponent: startExponent,
+    battleGuardMult: 1,
     nextCardMult: 1,
     nextCardRetrigger: 0,
     nextAttackMult: 1,
@@ -2574,18 +3077,29 @@ export function proceedNextBattleFloor(
     guardsPlayedInBattle: 0,
     energySpentThisTurn: 0,
     attrsPlayedThisTurn: [],
+    posPlayedThisTurn: [],
     lastCombatAction: null,
     lastAttrPlayed: null,
     attrsPlayedThisBattle: [],
     fourElementsTriggeredThisBattle: false,
+    firstAttackUsedInBattle: false,
+    firstCost2PlusUsedThisTurn: false,
     enemyWeakenPct: 0,
     freeExtremeUsedThisTurn: false,
     highRankCostDiscountThisTurn: 0,
-    allCardCostDiscountThisTurn: 0,
+    englishCostDiscountThisTurn: 0,
+    nextCardCostDiscountThisTurn: 0,
     zeroCostTriggersThisTurn: 0,
+    tsuneRebelDrawsThisTurn: 0,
     librarySkillDrawsThisTurn: 0,
+    vowShieldAttackCountThisTurn: 0,
+    survivorFangHealsThisTurn: 0,
+    sereneHealTriggersThisTurn: 0,
+    compassTriggeredThisTurn: false,
     whiteRingTriggeredThisTurn: false,
     staircaseStep: 0,
+    cardCostOverrides: {},
+    mummifiedZeroIds: [],
     enemy: nextEnemy,
     enemyHp: nextEnemy.maxHp,
     enemyShield: 0,
@@ -2600,6 +3114,14 @@ export function proceedNextBattleFloor(
     ),
     logs: [...startLogs, ...prev.logs].slice(0, 20),
   };
+
+  applyDrawRelicEffects(
+    nextState,
+    openingRes.newlyDrawn,
+    openingRes.reshuffleCount,
+    rng
+  );
+  return nextState;
 }
 
 export function getRelicLabels(relicIds: string[]): RelicDef[] {
