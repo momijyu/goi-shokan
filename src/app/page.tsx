@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { useSaveData } from "@/components/GameShell";
+import {
+  ExcavationBannerBurst,
+  MiningCardRevealFrame,
+} from "@/components/MiningRevealEffects";
 import { WordCard } from "@/components/WordCard";
 import { WordDetailDialog } from "@/components/WordDetailDialog";
 import {
@@ -38,7 +42,20 @@ export default function SummonHallPage() {
   const [result, setResult] = useState<AnalyzeSummary | null>(null);
   const [newTerms, setNewTerms] = useState<string[]>([]);
   const [upgradedTerms, setUpgradedTerms] = useState<string[]>([]);
+  const [revealSeq, setRevealSeq] = useState(0);
   const [selectedCard, setSelectedCard] = useState<MinedCardResult | null>(null);
+  const revealSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (revealSeq === 0) return;
+    const timer = window.setTimeout(() => {
+      revealSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [revealSeq]);
 
   const handleMine = async () => {
     if (loading) return;
@@ -62,6 +79,7 @@ export default function SummonHallPage() {
         setNewTerms(applied.newTerms);
         setUpgradedTerms(applied.upgradedTerms);
         setDuplicateNotice(applied.isDuplicateText);
+        setRevealSeq((n) => n + 1);
         setResult(summary);
       }
     } catch {
@@ -234,7 +252,9 @@ export default function SummonHallPage() {
             type="button"
             onClick={handleMine}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 border border-[#D4AF37] bg-[#261E0E] px-6 py-2.5 font-serif text-sm font-extrabold tracking-wider text-[#F7F3EA] transition-colors hover:bg-[#3A2E14] disabled:opacity-50"
+            className={`inline-flex items-center justify-center gap-2 border border-[#D4AF37] bg-[#261E0E] px-6 py-2.5 font-serif text-sm font-extrabold tracking-wider text-[#F7F3EA] transition-all hover:bg-[#3A2E14] disabled:opacity-75 ${
+              loading ? "animate-pulse shadow-[0_0_16px_rgba(212,175,55,0.35)]" : ""
+            }`}
           >
             {loading ? (
               <>
@@ -261,11 +281,22 @@ export default function SummonHallPage() {
       <AnimatePresence mode="wait">
         {result && (
           <motion.section
-            key={`${save.totalSummons}_${duplicateNotice ? "dup" : "ok"}`}
-            initial={{ opacity: 0, y: 10 }}
+            ref={revealSectionRef}
+            key={`reveal_${revealSeq}`}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="kaku-frame p-4 sm:p-5"
+            transition={{ duration: 0.25 }}
+            className="kaku-frame scroll-mt-16 p-4 sm:p-5"
           >
+            <ExcavationBannerBurst
+              revealSeq={revealSeq}
+              newCount={duplicateNotice ? 0 : newTerms.length}
+              upgradedCount={duplicateNotice ? 0 : upgradedTerms.length}
+              hasUR={result.packCards.some((c) => c.entry.rank === "UR")}
+              hasSSR={result.packCards.some((c) => c.entry.rank === "SSR")}
+              isDuplicate={duplicateNotice}
+            />
+
             <div className="mb-4 flex flex-col justify-between gap-2 border-b border-[#2E2822] pb-3 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#E3B94E]" />
@@ -318,12 +349,13 @@ export default function SummonHallPage() {
                       : undefined;
 
                 return (
-                  <motion.div
-                    key={`${item.entry.term}_${idx}`}
-                    initial={{ opacity: 0, scale: 0.94, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.18 }}
-                    className="flex flex-col gap-1.5"
+                  <MiningCardRevealFrame
+                    key={`${revealSeq}_${item.entry.term}_${idx}`}
+                    revealSeq={revealSeq}
+                    index={idx}
+                    rank={item.entry.rank}
+                    isNew={isNew && !duplicateNotice}
+                    isUpgraded={isUpgraded && !duplicateNotice}
                   >
                     <WordCard
                       word={item.entry}
@@ -354,7 +386,7 @@ export default function SummonHallPage() {
                         </>
                       )}
                     </button>
-                  </motion.div>
+                  </MiningCardRevealFrame>
                 );
               })}
             </div>
