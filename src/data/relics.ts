@@ -476,7 +476,7 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "黒契約",
     category: "covenant",
     isBlackCovenant: true,
-    description: "戦闘中乗算が常時 ×5.5 ＆ 毎ターン最初の『こうげき』再発動 +2。代償として手札上限が 6枚 になり毎ターンドロー -1。",
+    description: "戦闘開始時の初期乗算 ×5.5 ＆ 毎ターン最初の『こうげき』再発動 +2。代償として手札上限が 6枚 になる。",
     flavor: "余白を切り捨てた極小の原稿用紙に、純化された殺意だけが宿る。",
   },
   {
@@ -568,7 +568,7 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "天啓",
     category: "covenant",
     isWhiteRevelation: true,
-    description: "ランク『極』『異』が再発動 +1、戦闘中乗算が常時 ×1.8、さらに毎ターン1回『極』のコストを0にする。",
+    description: "ランク『極』『異』が再発動 +1、戦闘開始時の初期乗算 ×1.8、さらに毎ターン1回『極』のコストを0にする。",
     flavor: "清らかなる理を貫く者へ贈られる、純粋なる言霊の礎。",
   },
   {
@@ -687,7 +687,7 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "重複可",
     category: "scaling",
     isRepeatable: true,
-    description: "【何回でも出現・重複可】全カードの永続基礎出力を ×3.0 ＆ 基礎加算 +300 する。",
+    description: "【何回でも出現・重複可】全カードの永続基礎出力を ×2.8 ＆ 基礎加算 +120 する。",
     flavor: "幾重にも塗り重ねられた墨が、凡百の語彙に圧倒的な質量を宿す。",
   },
   {
@@ -705,8 +705,8 @@ export const RELIC_LIST: RelicDef[] = [
     rankLabel: "重複可",
     category: "scaling",
     isRepeatable: true,
-    description: "【何回でも出現・重複可】戦闘開始時の初期乗算倍率を永続 ×4.0 する。",
-    flavor: "無数の結晶が共鳴し、開戦の瞬間から出力を底上げする。",
+    description: "【何回でも出現・重複可】永続初期乗算倍率を ×4.2 ＆ 毎ターン最大コスト +1・ドロー +1 する。",
+    flavor: "無数の結晶が共鳴し、思考の回転速度と出力を同時に引き上げる。",
   },
   {
     id: "blessing_exp_015",

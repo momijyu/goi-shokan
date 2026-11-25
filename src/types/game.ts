@@ -42,6 +42,22 @@ export interface SubSkillEffect {
   power: number;
 }
 
+export const SELF_HARM_MULT_HP_STEP = 10;
+
+export function getScaledSkillMultStep(
+  type: "english_link" | "diversity_mult" | "self_harm_mult",
+  skillPower: number
+): number {
+  switch (type) {
+    case "english_link":
+      return Number((1 + Math.min(0.6, skillPower * 0.25)).toFixed(2));
+    case "diversity_mult":
+      return Number((1 + Math.min(0.8, skillPower * 0.35)).toFixed(2));
+    case "self_harm_mult":
+      return Number((1 + Math.min(0.6, skillPower * 0.25)).toFixed(2));
+  }
+}
+
 /**
  * Generates unified, concise Japanese skill text in one fixed clause order:
  * Burst/Recoil -> Cost -> Draw -> Weaken -> Battle Mult -> Next Mult -> Retrigger
@@ -82,13 +98,15 @@ export function formatSkillDescription(
       case "retrigger_next":
         clauses.push({ order: 8, text: `次カード再発動 +${power}` });
         break;
-      case "english_link":
+      case "english_link": {
+        const step = getScaledSkillMultStep("english_link", power);
         clauses.push({ order: 3, text: "山札 1枚引く" });
         clauses.push({
           order: 6,
-          text: `英語1枚(手札+自身)につき 戦闘倍率 +${power}ずつ加算`,
+          text: `英語1枚(手札+自身)につき 戦闘倍率 ×${step.toFixed(2)}ずつ乗算(最大8)`,
         });
         break;
+      }
       case "english_discount":
         clauses.push({ order: 2, text: "次の1枚コスト-1 ＋ 全英語札コスト-1" });
         clauses.push({ order: 6, text: `戦闘倍率 ×${power}` });
@@ -150,12 +168,14 @@ export function formatSkillDescription(
           text: `今ターン消費コスト1につき 次攻撃 ×${power}ずつ乗算`,
         });
         break;
-      case "diversity_mult":
+      case "diversity_mult": {
+        const step = getScaledSkillMultStep("diversity_mult", power);
         clauses.push({
           order: 6,
-          text: `今ターン属性1種につき 戦闘倍率 +${power}ずつ加算`,
+          text: `今ターン属性1種につき 戦闘倍率 ×${step.toFixed(2)}ずつ乗算`,
         });
         break;
+      }
       case "guard_stock":
         clauses.push({
           order: 7,
@@ -174,12 +194,14 @@ export function formatSkillDescription(
           text: `今ターン攻撃1回につき 次攻撃 ×${power}ずつ乗算`,
         });
         break;
-      case "self_harm_mult":
+      case "self_harm_mult": {
+        const step = getScaledSkillMultStep("self_harm_mult", power);
         clauses.push({
           order: 6,
-          text: `自傷HP累計×${power} 戦闘倍率加算`,
+          text: `自傷${SELF_HARM_MULT_HP_STEP}HPごとに 戦闘倍率 ×${step.toFixed(2)}ずつ乗算(最大10回分)`,
         });
         break;
+      }
     }
   };
 
