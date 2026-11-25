@@ -476,6 +476,56 @@ function buildImpromptuStarterDeck(
   };
 }
 
+function applyOpeningEnemyGimmick(
+  enemy: EnemyDef,
+  discardPile: BattleCard[],
+  relicIds: string[],
+  floor: number,
+  logs: string[]
+): void {
+  if (enemy.gimmickType !== "curse_aura") return;
+  if (relicIds.includes("white_revelation_pure")) {
+    logs.unshift("無垢なる刃が【口癖汚染】の『不』混入を弾き返した！");
+    return;
+  }
+  const curseWord = getWordMaster("やばい");
+  if (curseWord) {
+    discardPile.push(toBattleCard(curseWord, 0, `aura_${floor}`));
+    logs.unshift(
+      `${enemy.name} の特性【口癖汚染】：捨札に『不：やばい』が1枚混入！`
+    );
+  }
+}
+
+function extractOpeningAceCard(
+  drawPile: BattleCard[],
+  runMode: RunDeckMode
+): BattleCard | null {
+  if (runMode !== "standard") return null;
+  const aceIdx = drawPile.findIndex((c) => c.instanceId.includes("_ace_"));
+  if (aceIdx === -1) return null;
+  return drawPile.splice(aceIdx, 1)[0];
+}
+
+function computeEnemyDefenseMult(
+  gimmickType: EnemyDef["gimmickType"],
+  cardsPlayedThisTurn: number,
+  cardCost: number,
+  ignoreReduction: boolean
+): number {
+  let defenseMult = 1;
+  if (gimmickType === "combo_armor") {
+    defenseMult *= cardsPlayedThisTurn < 3 ? 0.65 : 1.4;
+  }
+  if (gimmickType === "heavy_dampen" && cardCost >= 2) {
+    defenseMult *= 0.6;
+  }
+  if (ignoreReduction && defenseMult < 1) {
+    defenseMult = 1;
+  }
+  return defenseMult;
+}
+
 export function startNewRun(
   save: PlayerSaveData,
   stageId: string,
@@ -526,8 +576,15 @@ export function startNewRun(
   const ownedListCount = Object.keys(save.ownedWords).length;
   const firstEnemy = pickEnemyForFloor(stage, 1, false, rng);
   const drawPile = shuffleWithRng(deck, rng);
-  const hand = drawPile.slice(0, Math.min(MAX_HAND_SIZE, 5));
-  const remainingDraw = drawPile.slice(hand.length);
+  const openingAce = extractOpeningAceCard(drawPile, runMode);
+  const openingLimit = Math.min(MAX_HAND_SIZE, 5);
+  const nonAceCount = Math.max(0, openingLimit - (openingAce ? 1 : 0));
+  const drawnRest = drawPile.slice(0, nonAceCount);
+  const hand = openingAce ? [openingAce, ...drawnRest] : drawnRest;
+  const remainingDraw = drawPile.slice(drawnRest.length);
+  const initialDiscard: BattleCard[] = [];
+  const startLogs = [`第1階：${firstEnemy.name} が立ちはだかる！`];
+  applyOpeningEnemyGimmick(firstEnemy, initialDiscard, [], 1, startLogs);
 
   const styleMeta = RANDOM_STYLE_META.find((s) => s.id === randomStyle);
   const resolvedStageName = isDaily
@@ -569,7 +626,7 @@ export function startNewRun(
     deck,
     drawPile: remainingDraw,
     hand,
-    discardPile: [],
+    discardPile: initialDiscard,
     playedThisTurn: [],
     relicIds: [],
     battleFlatAdd: 0,
@@ -630,7 +687,7 @@ export function startNewRun(
     lastOutput: null,
     maxDamageDealt: 0,
     encounteredEnemyIds: [firstEnemy.id],
-    logs: [`第1階：${firstEnemy.name} が立ちはだかる！`],
+    logs: startLogs,
   };
 }
 
@@ -924,10 +981,15 @@ function applyDrawRelicEffects(
   }
 }
 
-function healPlayer(state: RunState, rawAmount: number): number {
-  const scaled = state.relicIds.includes("blood_meat_relic")
-    ? Math.floor(rawAmount * 1.5)
-    : Math.floor(rawAmount);
+function healPlayer(
+  state: RunState,
+  rawAmount: number,
+  applyBloodMeatScale = true
+): number {
+  const scaled =
+    applyBloodMeatScale && state.relicIds.includes("blood_meat_relic")
+      ? Math.floor(rawAmount * 1.5)
+      : Math.floor(rawAmount);
   const clamped = Math.max(0, scaled);
   const prevHp = state.playerHp;
   state.playerHp = Math.min(state.playerMaxHp, state.playerHp + clamped);
@@ -1273,22 +1335,22 @@ export function playCardFromHand(
   }
 
   for (let r = 0; r < retriggers; r++) {
-    // 1. On-play relic triggers (draws and retrigger grants trigger once on r === 0)
-    if (hasSnowball && state.lastAttrPlayed === card.attribute) {
+    // 1. On-play relic triggers (once per card play on r === 0)
+    if (r === 0 && hasSnowball && state.lastAttrPlayed === card.attribute) {
       state.battleMult *= 1.5;
     }
-    if (hasYoji && isFourKanji) {
+    if (r === 0 && hasYoji && isFourKanji) {
       state.battleMult *= 2.0;
     }
-    if (hasTwoKanji && isTwoKanji) {
+    if (r === 0 && hasTwoKanji && isTwoKanji) {
       state.permanentFlatAdd += 50;
       state.battleFlatAdd += 50;
       state.battleMult *= 1.45;
     }
-    if (hasKyokuten && (card.rank === "SSR" || card.rank === "UR")) {
+    if (r === 0 && hasKyokuten && (card.rank === "SSR" || card.rank === "UR")) {
       state.battleMult *= 2.2;
     }
-    if (hasHeavyGravity && card.cost >= 3) {
+    if (r === 0 && hasHeavyGravity && card.cost >= 3) {
       state.permanentMultBonus = Number((state.permanentMultBonus * 1.08).toFixed(4));
       state.battleMult *= 1.85;
     }
@@ -1337,17 +1399,17 @@ export function playCardFromHand(
       nextHand = drawnRes.nextHand;
       applyDrawRelicEffects(state, drawnRes.newlyDrawn, drawnRes.reshuffleCount, getRng());
     }
-    if (hasTsuneResonator && card.rank === "N") {
+    if (r === 0 && hasTsuneResonator && card.rank === "N") {
       state.battleMult *= 1.3;
     }
-    if (hasJakusha && isWeakBaseCard) {
+    if (r === 0 && hasJakusha && isWeakBaseCard) {
       state.permanentFlatAdd += 60;
       state.battleFlatAdd += 60;
       state.permanentMultBonus = Number((state.permanentMultBonus * 1.04).toFixed(4));
     }
-    if (hasWhiteLibrary && role === "skill") {
+    if (r === 0 && hasWhiteLibrary && role === "skill") {
       state.battleMult *= 1.2;
-      if (r === 0 && (state.librarySkillDrawsThisTurn ?? 0) < 3) {
+      if ((state.librarySkillDrawsThisTurn ?? 0) < 3) {
         state.librarySkillDrawsThisTurn = (state.librarySkillDrawsThisTurn ?? 0) + 1;
         const drawnRes = drawIntoHand(
           nextDraw,
@@ -1377,7 +1439,7 @@ export function playCardFromHand(
     if (role === "guard" && (card.attribute === "logic" || card.attribute === "matter")) {
       attrMult = 1.25;
     }
-    if (hasEmotionDetonator && role === "attack" && card.attribute === "emotion") {
+    if (r === 0 && hasEmotionDetonator && role === "attack" && card.attribute === "emotion") {
       state.permanentMultBonus = Number((state.permanentMultBonus * 1.03).toFixed(4));
       state.battleMult *= 1.4;
     }
@@ -1391,11 +1453,14 @@ export function playCardFromHand(
       state.vowShieldAttackCountThisTurn += 1;
       state.battleMult *= 1.35;
     }
-    if (
-      r === 0 &&
+    // Snapshot <=50% HP before survivor_fang heals so the heal doesn't erase its own ×2.2 multiplier
+    const isUnderHalfForSurvivorFang =
       role === "attack" &&
       state.relicIds.includes("survivor_fang") &&
-      state.playerHp <= state.playerMaxHp * 0.5 &&
+      state.playerHp <= state.playerMaxHp * 0.5;
+    if (
+      r === 0 &&
+      isUnderHalfForSurvivorFang &&
       state.survivorFangHealsThisTurn < 2
     ) {
       state.survivorFangHealsThisTurn += 1;
@@ -1427,11 +1492,7 @@ export function playCardFromHand(
       (isRhythmBeat ? 3.0 : 1) *
       (penNibActiveThisPlay ? 2.5 : 1) *
       (firstAttackRedBullActive ? 3.0 : 1) *
-      (role === "attack" &&
-      state.relicIds.includes("survivor_fang") &&
-      state.playerHp <= state.playerMaxHp * 0.5
-        ? 2.2
-        : 1) *
+      (isUnderHalfForSurvivorFang ? 2.2 : 1) *
       (role === "attack" &&
       state.relicIds.includes("white_revelation_sanctuary") &&
       state.playerShield > 0
@@ -1462,34 +1523,45 @@ export function playCardFromHand(
           : 1
       : 1;
 
-    const baseOutput =
-      (rawBase +
-        state.battleFlatAdd +
-        abundantFlatAdd +
-        fBlessingFlatAdd +
-        attackBuffFlat) *
-      pactBaseMult;
-    const combinedMult = Math.max(
-      0.5,
-      state.battleMult *
-        state.nextCardMult *
-        attackBuffMult *
-        attrMult *
-        fMult *
-        fBlessingMult *
-        abundantMult *
-        minimalistMult *
-        senpenMult *
-        desperateMult *
-        chainTurnMult *
-        brokenBladeMult
+    const calcOffenseResult = (effectiveBattleMult: number) => {
+      const nextBaseOutput =
+        (rawBase +
+          state.battleFlatAdd +
+          abundantFlatAdd +
+          fBlessingFlatAdd +
+          attackBuffFlat) *
+        pactBaseMult;
+      const nextCombinedMult = Math.max(
+        0.5,
+        effectiveBattleMult *
+          state.nextCardMult *
+          attackBuffMult *
+          attrMult *
+          fMult *
+          fBlessingMult *
+          abundantMult *
+          minimalistMult *
+          senpenMult *
+          desperateMult *
+          chainTurnMult *
+          brokenBladeMult
+      );
+      const rawVal = nextBaseOutput * nextCombinedMult;
+      const val = Number.isNaN(rawVal)
+        ? 1
+        : Number.isFinite(rawVal)
+          ? Math.max(1, Math.floor(rawVal))
+          : Infinity;
+      return {
+        baseOutput: nextBaseOutput,
+        combinedMult: nextCombinedMult,
+        outputValue: val,
+      };
+    };
+
+    let { baseOutput, combinedMult, outputValue } = calcOffenseResult(
+      state.battleMult
     );
-    const rawOutputValue = baseOutput * combinedMult;
-    const outputValue = Number.isNaN(rawOutputValue)
-      ? 1
-      : Number.isFinite(rawOutputValue)
-        ? Math.max(1, Math.floor(rawOutputValue))
-        : Infinity;
 
     // Defense scaling stays in a balanced HP-aligned range while scaling sustainably with permanent multipliers
     const guardPactEchoMult = state.relicIds.includes("black_pact_echo") ? 0.5 : 1;
@@ -1505,6 +1577,7 @@ export function playCardFromHand(
         guardPactEchoMult *
         brokenBladeMult *
         state.battleGuardMult *
+        state.nextCardMult *
         sanctuaryGuardMult *
         vowGuardMult
       ).toFixed(2)
@@ -1521,17 +1594,12 @@ export function playCardFromHand(
       // Consume nextCardMult on first attack trigger
       state.nextCardMult = 1;
 
-      // Enemy tactical defenses against heavy / single-card spam
-      let enemyDefenseMult = 1;
-      if (state.enemy.gimmickType === "combo_armor") {
-        enemyDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.65 : 1.4;
-      }
-      if (state.enemy.gimmickType === "heavy_dampen" && card.cost >= 2) {
-        enemyDefenseMult *= 0.6;
-      }
-      if (hasBlackSolo && enemyDefenseMult < 1) {
-        enemyDefenseMult = 1;
-      }
+      const enemyDefenseMult = computeEnemyDefenseMult(
+        state.enemy.gimmickType,
+        state.cardsPlayedThisTurn,
+        card.cost,
+        hasBlackSolo
+      );
 
       // Pierce or normal shield absorption
       const isPierce =
@@ -1543,14 +1611,15 @@ export function playCardFromHand(
       applyDamageToEnemy(state, effectiveAttackOutput, isPierce);
       totalDamageThisAction += effectiveAttackOutput;
     } else if (role === "guard") {
+      state.nextCardMult = 1;
       const shieldGain = Math.max(1, Math.floor(guardSustainedBase * guardMult));
       state.playerShield += shieldGain;
       totalShieldThisAction += shieldGain;
-      if (hasLogicWall) {
+      if (r === 0 && hasLogicWall) {
         state.battleGuardMult *= 1.25;
         state.battleMult *= 1.3;
       }
-      if (hasIronWallArt && card.attribute === "matter") {
+      if (r === 0 && hasIronWallArt && card.attribute === "matter") {
         state.battleGuardMult *= 1.35;
         state.battleMult *= 1.35;
       }
@@ -1602,18 +1671,17 @@ export function playCardFromHand(
           break;
         case "pierce_burst": {
           state.battleMult = state.battleMult * card.skillPower;
-          let burstDefenseMult = 1;
-          if (state.enemy.gimmickType === "combo_armor") {
-            burstDefenseMult *= state.cardsPlayedThisTurn < 3 ? 0.65 : 1.4;
-          }
-          if (state.enemy.gimmickType === "heavy_dampen" && card.cost >= 2) {
-            burstDefenseMult *= 0.6;
-          }
-          const rawBurst =
-            (rawBase + state.battleFlatAdd) *
-            state.permanentBaseMult *
-            state.battleMult *
-            burstDefenseMult;
+          ({ baseOutput, combinedMult, outputValue } = calcOffenseResult(
+            state.battleMult
+          ));
+          state.nextCardMult = 1;
+          const burstDefenseMult = computeEnemyDefenseMult(
+            state.enemy.gimmickType,
+            state.cardsPlayedThisTurn,
+            card.cost,
+            hasBlackSolo
+          );
+          const rawBurst = outputValue * burstDefenseMult;
           const burstDmg = Number.isNaN(rawBurst)
             ? 1
             : Number.isFinite(rawBurst)
@@ -1624,7 +1692,13 @@ export function playCardFromHand(
           break;
         }
         case "chaos_curse":
-          if (r === 0 && !hasLotus && !hasWhiteBlank && !isFInverted) {
+          if (
+            card.rank !== "F" &&
+            r === 0 &&
+            !hasLotus &&
+            !hasWhiteBlank &&
+            !isFInverted
+          ) {
             applySelfHarm(state, 3);
           }
           state.nextCardMult *= isFInverted
@@ -1876,21 +1950,10 @@ export function playCardFromHand(
       }
     }
 
-    const isPierceBurst = role === "skill" && card.skillType === "pierce_burst";
     lastBreakdown = {
-      baseOutput:
-        role === "guard"
-          ? Math.floor(rawBase)
-          : isPierceBurst
-            ? Math.floor(rawBase + state.battleFlatAdd)
-            : Math.floor(baseOutput),
+      baseOutput: role === "guard" ? Math.floor(rawBase) : Math.floor(baseOutput),
       flatAdd: role === "guard" ? 0 : state.battleFlatAdd,
-      multiplier:
-        role === "guard"
-          ? guardMult
-          : isPierceBurst
-            ? state.permanentBaseMult * state.battleMult
-            : combinedMult,
+      multiplier: role === "guard" ? guardMult : combinedMult,
       retriggers,
       finalOutput:
         role === "attack" || totalDamageThisAction > 0
@@ -1903,9 +1966,8 @@ export function playCardFromHand(
       didDamage: totalDamageThisAction > 0,
       didShield: totalShieldThisAction > 0,
     };
-
-    state.lastAttrPlayed = card.attribute;
   }
+  state.lastAttrPlayed = card.attribute;
 
   if (role === "attack" && state.pendingSelfHarmPctAfterAttack > 0) {
     const morohaLoss = Math.max(
@@ -2716,34 +2778,9 @@ export function chooseRelicReward(
   relic: RelicDef | null
 ): RunState {
   if (prev.phase !== "reward_relic") return prev;
-  const nextLogs = [...prev.logs];
-  let nextMaxHp = prev.playerMaxHp;
-  let nextHp = prev.playerHp;
-
-  if (!relic) {
-    if (prev.relicIds.includes("black_pact_ascetic")) {
-      nextLogs.unshift("遺物を見送った（禁欲の代償によりHP回復は無効）。");
-    } else {
-      const rawHeal = prev.relicIds.includes("blood_meat_relic") ? 12 : 8;
-      nextHp = Math.min(nextMaxHp, nextHp + rawHeal);
-      nextLogs.unshift(`遺物を受け取らずに見送った（HP +${rawHeal} 回復）。`);
-    }
-  } else if (relic.id === "blood_ink_pact") {
-    nextMaxHp += 25;
-    nextHp += 25;
-    nextLogs.unshift("『血染めの筆』を獲得！最大HP +25（毎カード自傷HP4＆戦闘乗算×1.25）。");
-  } else if (relic.id === "blessing_exp_015") {
-    const hpUp = Math.max(5, Math.floor(nextMaxHp * 0.15));
-    nextMaxHp += hpUp;
-    nextHp += hpUp;
-    nextLogs.unshift(`『次元の栞』を獲得！永続乗算 ×5.5 ＆ 最大HP +${hpUp}！`);
-  }
-
   const state: RunState = {
     ...prev,
-    logs: nextLogs.slice(0, 20),
-    playerMaxHp: nextMaxHp,
-    playerHp: nextHp,
+    logs: [...prev.logs],
     relicIds: relic ? [...prev.relicIds, relic.id] : prev.relicIds,
     tengenPermanentMult:
       relic?.id === "tengen_equation"
@@ -2764,6 +2801,26 @@ export function chooseRelicReward(
           ? Number((prev.permanentMultBonus * 5.5).toFixed(4))
           : prev.permanentMultBonus,
   };
+
+  if (!relic) {
+    if (state.relicIds.includes("black_pact_ascetic")) {
+      state.logs.unshift("遺物を見送った（禁欲の代償によりHP回復は無効）。");
+    } else {
+      const healed = healPlayer(state, 8, true);
+      state.logs.unshift(`遺物を受け取らずに見送った（HP +${healed} 回復）。`);
+    }
+  } else if (relic.id === "blood_ink_pact") {
+    state.playerMaxHp += 25;
+    state.playerHp += 25;
+    state.logs.unshift("『血染めの筆』を獲得！最大HP +25（毎カード自傷HP4＆戦闘乗算×1.25）。");
+  } else if (relic.id === "blessing_exp_015") {
+    const hpUp = Math.max(5, Math.floor(state.playerMaxHp * 0.15));
+    state.playerMaxHp += hpUp;
+    state.playerHp += hpUp;
+    state.logs.unshift(`『次元の栞』を獲得！永続乗算 ×5.5 ＆ 最大HP +${hpUp}！`);
+  }
+
+  state.logs = state.logs.slice(0, 20);
   return advanceToNextFloorOrEvent(state);
 }
 
@@ -2892,8 +2949,8 @@ export function resolveCovenantEvent(
   } else if (state.relicIds.includes("black_pact_ascetic")) {
     state.logs.unshift("祭壇を見送った（禁欲の代償によりHP回復は無効）。");
   } else {
-    state.playerHp = Math.min(state.playerMaxHp, state.playerHp + 10);
-    state.logs.unshift("どちらの祭壇も選ばず見送った（HP +10 回復）。");
+    const healed = healPlayer(state, 10, false);
+    state.logs.unshift(`どちらの祭壇も選ばず見送った（HP +${healed} 回復）。`);
   }
 
   state.covenantOfferedRelic = null;
@@ -2918,9 +2975,9 @@ export function resolveLibraryEvent(
     if (state.relicIds.includes("black_pact_ascetic")) {
       return prev;
     }
-    const healAmt = Math.floor(state.playerMaxHp * 0.35);
-    state.playerHp = Math.min(state.playerMaxHp, state.playerHp + healAmt);
-    state.logs.unshift(`書庫で休息し、HPを ${healAmt} 回復した。`);
+    const rawHealAmt = Math.floor(state.playerMaxHp * 0.35);
+    const actualHealed = healPlayer(state, rawHealAmt, false);
+    state.logs.unshift(`書庫で休息し、HPを ${actualHealed} 回復した。`);
     didAct = true;
   } else if (action === "remove" && targetInstanceId && state.deck.length > 4) {
     const idx = state.deck.findIndex((c) => c.instanceId === targetInstanceId);
@@ -2988,14 +3045,18 @@ export function proceedNextBattleFloor(
     ];
   }
 
+  const openingAce = extractOpeningAceCard(drawPile, prev.runMode);
+  const existingOpeningHand = openingAce ? [openingAce] : [];
   const drawCount = getTurnDrawCount(prev.relicIds, true, 1);
+  const desiredDrawCount = Math.max(0, drawCount - existingOpeningHand.length);
   const openingRes = drawTurnOpeningHand(
     drawPile,
     [],
     prev.relicIds,
-    drawCount,
+    desiredDrawCount,
     `pact_open_${nextFloor}`,
-    rng
+    rng,
+    existingOpeningHand
   );
   const hand = openingRes.hand;
   const remaining = openingRes.nextDraw;
@@ -3029,19 +3090,13 @@ export function proceedNextBattleFloor(
   const startLogs = [
     `第${nextFloor}階${isEndless ? "（無間）" : ""}：${nextEnemy.name} 出現！`,
   ];
-  if (nextEnemy.gimmickType === "curse_aura") {
-    if (prev.relicIds.includes("white_revelation_pure")) {
-      startLogs.unshift("無垢なる刃が【口癖汚染】の『不』混入を弾き返した！");
-    } else {
-      const curseWord = getWordMaster("やばい");
-      if (curseWord) {
-        initialDiscard.push(toBattleCard(curseWord, 0, `aura_${nextFloor}`));
-        startLogs.unshift(
-          `${nextEnemy.name} の特性【口癖汚染】：捨札に『不：やばい』が1枚混入！`
-        );
-      }
-    }
-  }
+  applyOpeningEnemyGimmick(
+    nextEnemy,
+    initialDiscard,
+    prev.relicIds,
+    nextFloor,
+    startLogs
+  );
 
   const nextState: RunState = {
     ...prev,
@@ -3117,7 +3172,7 @@ export function proceedNextBattleFloor(
 
   applyDrawRelicEffects(
     nextState,
-    openingRes.newlyDrawn,
+    [...existingOpeningHand, ...openingRes.newlyDrawn],
     openingRes.reshuffleCount,
     rng
   );
