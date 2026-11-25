@@ -277,7 +277,7 @@ export default function DeckPage() {
           {/* PC Readable Selected Pool Chips (Always open on PC) */}
           <div className="hidden gap-1.5 md:grid md:grid-cols-2 lg:grid-cols-3">
             {poolWords.map((w) => {
-              const stats = getEffectiveStats(w, w.obtainCount);
+              const stats = getEffectiveStats(w, 0);
               const rankMeta = RANK_META[w.rank];
               const skillMeta = SKILL_META[w.skillType];
               const isAce = w.term === save.aceTerm;

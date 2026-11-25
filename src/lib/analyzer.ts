@@ -739,6 +739,54 @@ function mapPosToJapanese(pos: PosCategory): string {
   }
 }
 
+const ADJ_INFLECTION_SUFFIXES = [
+  "かったら",
+  "かったり",
+  "くなかった",
+  "かったろう",
+  "かった",
+  "くない",
+  "くなく",
+  "くても",
+  "ければ",
+  "すぎる",
+  "すぎて",
+  "すぎ",
+  "くて",
+  "そう",
+  "かっ",
+  "く",
+];
+
+export function resolveInflectedAdjectiveBase(
+  surface: string,
+  sudachi: Map<string, SudachiLexEntry>
+): { term: string; reading: string; sEntry?: SudachiLexEntry } | null {
+  for (const suffix of ADJ_INFLECTION_SUFFIXES) {
+    if (!surface.endsWith(suffix) || surface.length <= suffix.length) continue;
+    const stem = surface.slice(0, -suffix.length);
+    if (!stem) continue;
+    const candidate = `${stem}い`;
+    const master = getWordMaster(candidate);
+    if (master && master.pos === "adj") {
+      return {
+        term: master.term,
+        reading: master.reading,
+        sEntry: sudachi.get(master.term),
+      };
+    }
+    const sEntry = sudachi.get(candidate);
+    if (sEntry && sEntry.pos === "adj" && (suffix !== "く" || candidate.length >= 3)) {
+      return {
+        term: candidate,
+        reading: sEntry.reading,
+        sEntry,
+      };
+    }
+  }
+  return null;
+}
+
 export async function analyzeTextForPack(
   text: string,
   maxPackCards = 6
@@ -833,10 +881,11 @@ export async function analyzeTextForPack(
       continue;
     }
 
-    // Next, try merging 2..4 consecutive tokens if SudachiDict recognizes the compound / modern word
+    // Next, try merging 2..4 consecutive tokens if SudachiDict recognizes the compound / modern word (or inflected adjective like うざかった -> うざい)
     if (
-      sudachi.size > 0 &&
-      compoundStartPos.has(tk.pos) &&
+      tk.pos !== "記号" &&
+      tk.pos !== "助詞" &&
+      tk.pos !== "助動詞" &&
       !["数", "非自立", "代名詞"].includes(tk.pos_detail_1)
     ) {
       for (let len = Math.min(4, tokens.length - i); len >= 2; len--) {
@@ -844,45 +893,91 @@ export async function analyzeTextForPack(
         if (slice.some((s) => s.pos === "記号" || s.pos === "助詞")) continue;
         const last = slice[slice.length - 1];
         const joinedSurface = slice.map((s) => s.surface_form).join("");
-        const lastBase =
-          last.basic_form && last.basic_form !== "*"
-            ? last.basic_form
-            : last.surface_form;
-        const joinedBase =
-          slice
-            .slice(0, -1)
-            .map((s) => s.surface_form)
-            .join("") + lastBase;
 
-        const matchTerm = sudachi.has(joinedBase)
-          ? joinedBase
-          : sudachi.has(joinedSurface)
-            ? joinedSurface
-            : null;
-        if (matchTerm && matchTerm.length >= 2) {
-          const sEntry = sudachi.get(matchTerm)!;
-          if (!STOPWORDS.has(matchTerm) || getWordMaster(matchTerm)) {
-            addExtractedWord(
-              matchTerm,
-              {
-                surface_form: joinedSurface,
-                pos: tk.pos,
-                pos_detail_1: tk.pos_detail_1,
-                basic_form: matchTerm,
-                reading: sEntry.reading,
-                word_type: "KNOWN",
-              },
-              joinedSurface,
-              sEntry
-            );
-            mergedLen = len;
-            break;
+        const inflectedAdj = resolveInflectedAdjectiveBase(joinedSurface, sudachi);
+        if (inflectedAdj) {
+          addExtractedWord(
+            inflectedAdj.term,
+            {
+              surface_form: joinedSurface,
+              pos: "形容詞",
+              pos_detail_1: "自立",
+              basic_form: inflectedAdj.term,
+              reading: inflectedAdj.reading,
+              word_type: "KNOWN",
+            },
+            joinedSurface,
+            inflectedAdj.sEntry
+          );
+          mergedLen = len;
+          break;
+        }
+
+        if (
+          sudachi.size > 0 &&
+          compoundStartPos.has(tk.pos)
+        ) {
+          const lastBase =
+            last.basic_form && last.basic_form !== "*"
+              ? last.basic_form
+              : last.surface_form;
+          const joinedBase =
+            slice
+              .slice(0, -1)
+              .map((s) => s.surface_form)
+              .join("") + lastBase;
+
+          const matchTerm = sudachi.has(joinedBase)
+            ? joinedBase
+            : sudachi.has(joinedSurface)
+              ? joinedSurface
+              : null;
+          if (matchTerm && matchTerm.length >= 2) {
+            const sEntry = sudachi.get(matchTerm)!;
+            if (!STOPWORDS.has(matchTerm) || getWordMaster(matchTerm)) {
+              addExtractedWord(
+                matchTerm,
+                {
+                  surface_form: joinedSurface,
+                  pos: tk.pos,
+                  pos_detail_1: tk.pos_detail_1,
+                  basic_form: matchTerm,
+                  reading: sEntry.reading,
+                  word_type: "KNOWN",
+                },
+                joinedSurface,
+                sEntry
+              );
+              mergedLen = len;
+              break;
+            }
           }
         }
       }
     }
     if (mergedLen > 0) {
       i += mergedLen - 1;
+      continue;
+    }
+
+    const singleInflectedAdj =
+      tk.pos !== "記号" && tk.pos !== "助詞" && tk.pos !== "助動詞"
+        ? resolveInflectedAdjectiveBase(tk.surface_form, sudachi)
+        : null;
+    if (singleInflectedAdj) {
+      addExtractedWord(
+        singleInflectedAdj.term,
+        {
+          surface_form: tk.surface_form,
+          pos: "形容詞",
+          pos_detail_1: "自立",
+          basic_form: singleInflectedAdj.term,
+          reading: singleInflectedAdj.reading,
+          word_type: "KNOWN",
+        },
+        tk.surface_form,
+        singleInflectedAdj.sEntry
+      );
       continue;
     }
 
@@ -986,11 +1081,16 @@ export async function analyzeTextForPack(
     });
   }
 
-  // Pack selection: up to maxPackCards distinct cards, prioritizing rare + spam F + balanced mix
+  // Pack selection: deterministic tiebreak across long text + balanced rank/attribute spread
+  const textTieSeed = trimmed.slice(0, 64);
+  const termTieScore = (term: string) =>
+    hashStringToSeed(`${textTieSeed}_${term}`);
+
   allCandidates.sort((a, b) => {
     const scoreA = RANK_PRIORITY[a.entry.rank] * 10 + (a.isRepeatedPenalty ? 55 : 0);
     const scoreB = RANK_PRIORITY[b.entry.rank] * 10 + (b.isRepeatedPenalty ? 55 : 0);
-    return scoreB - scoreA;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return termTieScore(a.entry.term) - termTieScore(b.entry.term);
   });
 
   const limit = Math.max(1, Math.floor(maxPackCards));
@@ -998,14 +1098,53 @@ export async function analyzeTextForPack(
   if (allCandidates.length <= limit) {
     packCards.push(...allCandidates);
   } else if (limit <= 6) {
-    packCards.push(...allCandidates.slice(0, Math.min(4, limit)));
-    const tail = allCandidates.slice(4);
-    const midIdx = Math.floor(tail.length / 2);
-    if (tail[0] && packCards.length < limit) packCards.push(tail[0]);
-    if (tail[midIdx] && tail[midIdx] !== tail[0] && packCards.length < limit) {
-      packCards.push(tail[midIdx]);
-    } else if (tail[1] && packCards.length < limit) {
-      packCards.push(tail[1]);
+    const pickedSet = new Set<MinedCardResult>();
+    const pickedAttrs = new Set<Attribute>();
+    const pickCandidate = (item: MinedCardResult) => {
+      if (pickedSet.has(item) || packCards.length >= limit) return;
+      pickedSet.add(item);
+      pickedAttrs.add(item.entry.attribute);
+      packCards.push(item);
+    };
+
+    // 1. Preserve spam penalties first
+    for (const c of allCandidates) {
+      if (c.isRepeatedPenalty) pickCandidate(c);
+    }
+
+    // 2. Stratified picks (up to 2 top UR/SSR, 2 mid SR/R, and 2 base R/N) preferring diverse attributes
+    const pickFromBucket = (
+      ranks: Rank[],
+      maxPicks: number
+    ) => {
+      const bucket = allCandidates.filter(
+        (c) => !pickedSet.has(c) && ranks.includes(c.entry.rank)
+      );
+      let taken = 0;
+      for (const c of bucket) {
+        if (taken >= maxPicks || packCards.length >= limit) break;
+        if (!pickedAttrs.has(c.entry.attribute)) {
+          pickCandidate(c);
+          taken += 1;
+        }
+      }
+      for (const c of bucket) {
+        if (taken >= maxPicks || packCards.length >= limit) break;
+        if (!pickedSet.has(c)) {
+          pickCandidate(c);
+          taken += 1;
+        }
+      }
+    };
+
+    pickFromBucket(["UR", "SSR"], 2);
+    pickFromBucket(["SR", "R"], 2);
+    pickFromBucket(["R", "N"], 2);
+
+    // 3. Fill any remaining slots across remaining candidates
+    for (const c of allCandidates) {
+      if (packCards.length >= limit) break;
+      pickCandidate(c);
     }
   } else {
     // Larger impromptu pool: keep top cards + balanced spread of lower-cost / common cards

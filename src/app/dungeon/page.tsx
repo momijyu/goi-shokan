@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -72,7 +72,9 @@ import { submitRankingScore } from "@/lib/rankings";
 import {
   applyDeckPresetInSave,
   applyMiningPackToSave,
+  loadActiveRunState,
   recordRunResultInSave,
+  saveActiveRunState,
 } from "@/lib/storage";
 import {
   ATTR_META,
@@ -272,9 +274,40 @@ function renderRunMultiplierRows(run: RunState) {
   );
 }
 
+let activeRunCache: RunState | null | undefined;
+const activeRunListeners = new Set<() => void>();
+
+function subscribeActiveRun(listener: () => void): () => void {
+  activeRunListeners.add(listener);
+  return () => activeRunListeners.delete(listener);
+}
+
+function getClientActiveRunSnapshot(): RunState | null {
+  if (activeRunCache === undefined) {
+    activeRunCache = loadActiveRunState();
+  }
+  return activeRunCache;
+}
+
+function getServerActiveRunSnapshot(): RunState | null {
+  return null;
+}
+
+function writeActiveRunSnapshot(next: RunState | null): void {
+  activeRunCache = next;
+  saveActiveRunState(next);
+  activeRunListeners.forEach((l) => l());
+}
+
 export default function DungeonPage() {
   const { save, hydrated, setSave, setMobileBattleFullscreen } = useSaveData();
-  const [run, setRun] = useState<RunState | null>(null);
+  const run = useSyncExternalStore(
+    subscribeActiveRun,
+    getClientActiveRunSnapshot,
+    getServerActiveRunSnapshot
+  );
+  const setRun = writeActiveRunSnapshot;
+  const recordedRunIdsRef = useRef<Set<string>>(new Set());
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [relicModalOpen, setRelicModalOpen] = useState(false);
   const [hudModalOpen, setHudModalOpen] = useState(false);
@@ -346,6 +379,17 @@ export default function DungeonPage() {
   };
 
   const finalizeRunRecord = (finalRun: RunState, cleared: boolean) => {
+    if (
+      recordedRunIdsRef.current.has(finalRun.runId) ||
+      save.runHistories.some((h) => h.id === finalRun.runId)
+    ) {
+      return;
+    }
+    recordedRunIdsRef.current.add(finalRun.runId);
+    const resolvedDailyDate = finalRun.isDaily
+      ? (finalRun.dailyDate ?? getTodayJstDateKey())
+      : null;
+
     const hadWhite = finalRun.relicIds.some((id) => id.startsWith("white_revelation"));
     const hadBlack = finalRun.relicIds.some((id) => id.startsWith("black_pact_"));
     const hadF = finalRun.deck.some((c) => c.rank === "F");
@@ -358,6 +402,7 @@ export default function DungeonPage() {
         stageId: finalRun.stageId,
         stageName: finalRun.stageName,
         isDaily: finalRun.isDaily,
+        dailyDate: resolvedDailyDate,
         cleared,
         reachedFloor: finalRun.floor,
         maxDamage: finalRun.maxDamageDealt,
@@ -380,7 +425,7 @@ export default function DungeonPage() {
         stageId: finalRun.stageId,
         stageName: finalRun.stageName,
         isDaily: finalRun.isDaily,
-        dailyDate: finalRun.isDaily ? getTodayJstDateKey() : null,
+        dailyDate: resolvedDailyDate,
         cleared,
         reachedFloor: finalRun.floor,
         maxDamage: finalRun.maxDamageDealt,
@@ -424,7 +469,9 @@ export default function DungeonPage() {
         );
         return;
       }
-      const applied = applyMiningPackToSave(save, summary.packCards, trimmed);
+      const applied = applyMiningPackToSave(save, summary.packCards, trimmed, {
+        registerNewOnlyOnDuplicate: true,
+      });
       setSave(applied.next);
       clearVictoryTransition();
       setCombatFx(null);
@@ -577,8 +624,8 @@ export default function DungeonPage() {
   const handleRetireRun = () => {
     clearVictoryTransition();
     setCombatFx(null);
-    if (run && run.maxDamageDealt > 0) {
-      finalizeRunRecord(run, run.isEndless);
+    if (run && run.phase !== "gameover" && run.maxDamageDealt > 0) {
+      finalizeRunRecord(run, run.phase === "stage_clear" || run.isEndless);
     }
     setRun(null);
     setSelectedCardId(null);
@@ -1223,13 +1270,15 @@ export default function DungeonPage() {
             >
               戦況・履歴
             </button>
-            <button
-              type="button"
-              onClick={handleRetireRun}
-              className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[10px] text-[#968E7E] hover:border-[#C93A2B] hover:text-[#E05A47]"
-            >
-              撤退
-            </button>
+            {run.phase !== "stage_clear" && run.phase !== "gameover" && (
+              <button
+                type="button"
+                onClick={handleRetireRun}
+                className="border border-[#3A332A] bg-[#0B0A0E] px-2 py-1 font-mono text-[10px] text-[#968E7E] hover:border-[#C93A2B] hover:text-[#E05A47]"
+              >
+                撤退
+              </button>
+            )}
           </div>
         </div>
 

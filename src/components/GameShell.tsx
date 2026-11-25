@@ -34,6 +34,7 @@ import {
   loadSaveData,
   resetAllSaveData,
   saveSaveData,
+  STORAGE_KEY,
 } from "@/lib/storage";
 import type { PlayerSaveData } from "@/types/game";
 
@@ -75,9 +76,23 @@ const SERVER_SNAPSHOT = createInitialSaveData();
 let clientSnapshotCache: PlayerSaveData | null = null;
 const storeListeners = new Set<() => void>();
 
+const handleCrossTabStorage = (event: StorageEvent) => {
+  if (event.key !== null && event.key !== STORAGE_KEY) return;
+  clientSnapshotCache = loadSaveData();
+  storeListeners.forEach((l) => l());
+};
+
 function subscribeSaveStore(listener: () => void): () => void {
   storeListeners.add(listener);
-  return () => storeListeners.delete(listener);
+  if (typeof window !== "undefined" && storeListeners.size === 1) {
+    window.addEventListener("storage", handleCrossTabStorage);
+  }
+  return () => {
+    storeListeners.delete(listener);
+    if (typeof window !== "undefined" && storeListeners.size === 0) {
+      window.removeEventListener("storage", handleCrossTabStorage);
+    }
+  };
 }
 
 function getClientSaveSnapshot(): PlayerSaveData {
