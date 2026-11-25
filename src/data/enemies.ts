@@ -269,7 +269,7 @@ export function generateEndlessEnemy(floor: number, baseHp: number, rng: () => n
   const hp = Number.isFinite(rawHp) ? Math.min(1e300, Math.floor(rawHp)) : 1e300;
   const atkScale = Math.min(
     1e12,
-    Math.floor(30 * Math.pow(1.075, endlessDepth))
+    Math.floor(34 * Math.pow(1.08, endlessDepth))
   );
   const isBoss = endlessDepth % 3 === 0;
 
@@ -293,7 +293,7 @@ export function generateEndlessEnemy(floor: number, baseHp: number, rng: () => n
         : undefined,
     pattern: [
       { type: "attack", value: atkScale, label: `深淵撃 ${atkScale}` },
-      { type: "defend", value: Math.min(1e298, Math.floor(hp * 0.05)), label: `虚無障壁` },
+      { type: "defend", value: Math.min(1e298, Math.floor(hp * 0.015)), label: `虚無障壁` },
       { type: "curse_f", value: isBoss ? 2 : 1, label: `侵食（不+${isBoss ? 2 : 1}）` },
       { type: "heavy_attack", value: Math.floor(atkScale * 1.4), label: `崩壊の一太刀 ${Math.floor(atkScale * 1.4)}` },
     ],

@@ -17,7 +17,9 @@ import {
   hashStringToSeed,
 } from "@/lib/bignum";
 import {
+  getScaledSkillMultStep,
   PLUS_STAT_STEP,
+  SELF_HARM_MULT_HP_STEP,
   type Attribute,
   type BattleCard,
   type CommandRole,
@@ -576,7 +578,8 @@ export function startNewRun(
   }
 
   const ownedListCount = Object.keys(save.ownedWords).length;
-  const firstEnemy = pickEnemyForFloor(stage, 1, false, rng);
+  const enemyRng = createSeededRng(seed ^ 0x9e3779b9);
+  const firstEnemy = pickEnemyForFloor(stage, 1, false, enemyRng);
   const drawPile = shuffleWithRng(deck, rng);
   const openingAce = extractOpeningAceCard(drawPile, runMode);
   const openingLimit = Math.min(MAX_HAND_SIZE, 5);
@@ -708,6 +711,7 @@ export function getTurnMaxEnergy(relicIds: string[], turn = 1): number {
   if (relicIds.includes("black_pact_berserk_stone")) energy += 2;
   if (relicIds.includes("calm_teapot") && turn === 1) energy += 2;
   if (relicIds.includes("white_revelation_astral") && turn % 2 === 0) energy += 2;
+  energy += relicIds.filter((id) => id === "blessing_mult_2").length;
   if (relicIds.includes("empty_pocket")) energy -= 1;
   if (relicIds.includes("black_pact_solo")) energy -= 1;
   return Math.max(1, energy);
@@ -724,7 +728,7 @@ export function getTurnDrawCount(
   if (relicIds.includes("chi_honryu")) count += 2;
   if (relicIds.includes("white_revelation_apex")) count += 1;
   if (relicIds.includes("black_pact_chaos_eye")) count += 2;
-  if (relicIds.includes("black_pact_truncate")) count -= 1;
+  count += relicIds.filter((id) => id === "blessing_mult_2").length;
   if (isTurnOne && relicIds.includes("sokudoku_master")) count += 3;
   if (isTurnOne && relicIds.includes("black_pact_glass")) count += 1;
   if (!isTurnOne && relicIds.includes("calm_teapot") && prevTurnCardsPlayed <= 3) {
@@ -753,7 +757,10 @@ export function getEffectiveCardCost(state: RunState, card: BattleCard): number 
   if (hasTsuneRebel && card.rank === "N") return 0;
   if (hasWhiteOmega && card.rank === "SSR" && !state.freeExtremeUsedThisTurn) return 0;
 
-  const baseCost = state.cardCostOverrides[card.instanceId] ?? card.cost;
+  const hasOverride = state.cardCostOverrides[card.instanceId] !== undefined;
+  const baseCost = hasOverride
+    ? state.cardCostOverrides[card.instanceId]
+    : card.cost;
   let effective =
     baseCost -
     state.nextCardCostDiscountThisTurn -
@@ -762,7 +769,7 @@ export function getEffectiveCardCost(state: RunState, card: BattleCard): number 
     state.relicIds.includes("black_pact_heavy") &&
     (card.rank === "N" || card.rank === "R")
   ) {
-    effective += 1;
+    effective = hasOverride ? Math.min(3, effective + 1) : effective + 1;
   }
   if (state.relicIds.includes("white_revelation_foresight") && state.turn === 1) {
     effective -= 1;
@@ -807,8 +814,9 @@ export function getDynamicSkillPreview(
     }
     case "diversity_mult": {
       const attrs = new Set([...state.attrsPlayedThisTurn, card.attribute]);
-      const add = attrs.size * card.skillPower;
-      return `今すぐ発動時：${attrs.size}属性 → 戦闘倍率 +${add.toFixed(1)}`;
+      const step = getScaledSkillMultStep("diversity_mult", card.skillPower);
+      const mult = Math.pow(step, attrs.size);
+      return `今すぐ発動時：${attrs.size}属性 → 戦闘倍率 ×${mult.toFixed(2)}`;
     }
     case "guard_stock": {
       const stacks = Math.min(16, state.guardsPlayedInBattle);
@@ -825,8 +833,13 @@ export function getDynamicSkillPreview(
       return `今すぐ発動時：自傷累計${state.selfHarmHpTotalInBattle}HP → 次攻撃倍率 +${bonus.toFixed(1)}`;
     }
     case "self_harm_mult": {
-      const add = state.selfHarmHpTotalInBattle * card.skillPower;
-      return `今すぐ発動時：自傷累計${state.selfHarmHpTotalInBattle}HP → 戦闘倍率 +${add.toFixed(2)}`;
+      const stacks =
+        state.selfHarmHpTotalInBattle > 0
+          ? Math.min(10, Math.ceil(state.selfHarmHpTotalInBattle / SELF_HARM_MULT_HP_STEP))
+          : 0;
+      const step = getScaledSkillMultStep("self_harm_mult", card.skillPower);
+      const mult = Math.pow(step, stacks);
+      return `今すぐ発動時：自傷累計${state.selfHarmHpTotalInBattle}HP（${stacks}段階） → 戦闘倍率 ×${mult.toFixed(2)}`;
     }
     case "curse_stack": {
       const stacks = Math.min(12, state.selfHarmCountInBattle);
@@ -859,9 +872,13 @@ export function getDynamicSkillPreview(
       return `今すぐ発動時：HP -${sacLoss} 消費・盾+${sacLoss} → 次攻撃 ×${card.skillPower}`;
     }
     case "english_link": {
-      const engCount =
-        otherHand.filter((c) => /^[A-Za-z][A-Za-z0-9-]*$/.test(c.term)).length + 1;
-      return `今すぐ発動時：対象英語${engCount}枚 → 戦闘倍率 +${(card.skillPower * engCount).toFixed(1)}`;
+      const engCount = Math.min(
+        8,
+        otherHand.filter((c) => /^[A-Za-z][A-Za-z0-9-]*$/.test(c.term)).length + 1
+      );
+      const step = getScaledSkillMultStep("english_link", card.skillPower);
+      const mult = Math.pow(step, engCount);
+      return `今すぐ発動時：対象英語${engCount}枚 → 戦闘倍率 ×${mult.toFixed(2)}`;
     }
     case "mimic_last": {
       if (!state.lastCombatAction) {
@@ -1712,7 +1729,9 @@ export function playCardFromHand(
           const engInHand = nextHand.filter((c) =>
             isEnglishCardTerm(c.term)
           ).length;
-          state.battleMult = state.battleMult + card.skillPower * (engInHand + 1);
+          const stacks = Math.min(8, engInHand + 1);
+          const step = getScaledSkillMultStep("english_link", card.skillPower);
+          state.battleMult *= Math.pow(step, stacks);
           if (r === 0) {
             const res = drawIntoHand(
               nextDraw,
@@ -1850,8 +1869,8 @@ export function playCardFromHand(
           break;
         case "diversity_mult":
           if (r === 0) {
-            state.battleMult =
-              state.battleMult + state.attrsPlayedThisTurn.length * card.skillPower;
+            const step = getScaledSkillMultStep("diversity_mult", card.skillPower);
+            state.battleMult *= Math.pow(step, state.attrsPlayedThisTurn.length);
           }
           break;
         case "guard_stock":
@@ -1890,8 +1909,12 @@ export function playCardFromHand(
           break;
         case "self_harm_mult":
           if (r === 0 && state.selfHarmHpTotalInBattle > 0) {
-            state.battleMult =
-              state.battleMult + state.selfHarmHpTotalInBattle * card.skillPower;
+            const stacks = Math.min(
+              10,
+              Math.ceil(state.selfHarmHpTotalInBattle / SELF_HARM_MULT_HP_STEP)
+            );
+            const step = getScaledSkillMultStep("self_harm_mult", card.skillPower);
+            state.battleMult *= Math.pow(step, stacks);
           }
           break;
       }
@@ -2577,11 +2600,11 @@ export function endPlayerTurn(prev: RunState): RunState {
     }
   }
 
-  // Anti-stall enrage: from Turn 4 onward, enemy ATK doubles exponentially relative to its max base ATK so stall/guard loops reach lethal by Turn 7-8
+  // Anti-stall enrage: from Turn 4 onward, enemy ATK ramps exponentially relative to its max base ATK so stall/guard loops reach lethal cleanly
   if (state.turn >= 4) {
     const baseEnemyAtk = getEnemyBaseMaxAtk(state.enemy);
-    const baseStep = Math.max(22, Math.floor(baseEnemyAtk * 0.6));
-    const enrageGain = Math.floor(baseStep * Math.pow(2, state.turn - 4));
+    const baseStep = Math.max(18, Math.floor(baseEnemyAtk * 0.45));
+    const enrageGain = Math.floor(baseStep * Math.pow(1.75, state.turn - 4));
     if (enrageGain > 0) {
       state.enemyAtkBonus += enrageGain;
       state.logs.unshift(
@@ -2751,9 +2774,10 @@ export function chooseCardReward(
     }
   } else if (shuffledUnique.length >= 3) {
     if (
-      state.floor >= 2 &&
+      state.stageId === "stage_3" &&
+      state.floor >= 5 &&
       shuffledRepeat.length > 0 &&
-      nextRand() < 0.5
+      nextRand() < 0.4
     ) {
       choices.push(shuffledUnique[0], shuffledUnique[1], shuffledRepeat[0]);
     } else {
@@ -2791,15 +2815,15 @@ export function chooseRelicReward(
         : prev.tengenPermanentMult,
     permanentFlatAdd:
       relic?.id === "blessing_flat_1000"
-        ? prev.permanentFlatAdd + 300
+        ? prev.permanentFlatAdd + 120
         : prev.permanentFlatAdd,
     permanentBaseMult:
       relic?.id === "blessing_flat_1000"
-        ? Number((prev.permanentBaseMult * 3.0).toFixed(4))
+        ? Number((prev.permanentBaseMult * 2.8).toFixed(4))
         : prev.permanentBaseMult,
     permanentMultBonus:
       relic?.id === "blessing_mult_2"
-        ? Number((prev.permanentMultBonus * 4.0).toFixed(4))
+        ? Number((prev.permanentMultBonus * 4.2).toFixed(4))
         : relic?.id === "blessing_exp_015"
           ? Number((prev.permanentMultBonus * 5.5).toFixed(4))
           : prev.permanentMultBonus,
@@ -2816,6 +2840,8 @@ export function chooseRelicReward(
     state.playerMaxHp += 25;
     state.playerHp += 25;
     state.logs.unshift("『血染めの筆』を獲得！最大HP +25（毎カード自傷HP4＆戦闘乗算×1.25）。");
+  } else if (relic.id === "blessing_mult_2") {
+    state.logs.unshift("『極光の結晶』を獲得！永続乗算 ×4.2 ＆ 毎ターン最大コスト+1・ドロー+1！");
   } else if (relic.id === "blessing_exp_015") {
     const hpUp = Math.max(5, Math.floor(state.playerMaxHp * 0.15));
     state.playerMaxHp += hpUp;
@@ -3036,7 +3062,8 @@ export function proceedNextBattleFloor(
   const isEndless = prev.isEndless || enterEndless;
 
   const rng = createSeededRng(prev.rngSeed + nextFloor * 1337);
-  const nextEnemy = pickEnemyForFloor(stage, nextFloor, isEndless, rng);
+  const enemyRng = createSeededRng(prev.rngSeed + nextFloor * 7919 + 17);
+  const nextEnemy = pickEnemyForFloor(stage, nextFloor, isEndless, enemyRng);
   let drawPile = shuffleWithRng(prev.deck, rng);
 
   if (prev.relicIds.includes("white_revelation_foresight")) {
