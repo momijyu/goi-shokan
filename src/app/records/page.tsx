@@ -10,6 +10,7 @@ import { getRelicDef } from "@/data/relics";
 import { formatJapaneseNumber, getTodayJstDateKey } from "@/lib/bignum";
 import {
   fetchRankings,
+  getHistoryDailyDate,
   getRunRankingGenre,
   isRankingConfigured,
   RANKING_GENRE_META,
@@ -88,9 +89,7 @@ export default function RecordsPage() {
       stageId: history.stageId,
       stageName: history.stageName,
       isDaily: history.isDaily,
-      dailyDate: history.isDaily
-        ? getTodayJstDateKey(new Date(history.createdAt))
-        : null,
+      dailyDate: history.isDaily ? getHistoryDailyDate(history) : null,
       cleared: history.cleared,
       reachedFloor: history.reachedFloor,
       maxDamage: history.maxDamage,
@@ -105,11 +104,22 @@ export default function RecordsPage() {
     }
   };
 
+  const allSubmitCandidates = (() => {
+    const byId = new Map<string, (typeof save.runHistories)[number]>();
+    for (const h of Object.values(save.bestRunRecords ?? {})) {
+      if (h) byId.set(h.id, h);
+    }
+    for (const h of save.runHistories) {
+      byId.set(h.id, h);
+    }
+    return Array.from(byId.values());
+  })();
+
   const handleSubmitAllGenres = async () => {
     if (syncingAll) return;
     setSyncingAll(true);
     setSubmitMessage(null);
-    const res = await submitGenreBestRecords(save.runHistories, save.guestName);
+    const res = await submitGenreBestRecords(allSubmitCandidates, save.guestName);
     setSyncingAll(false);
     if (res.submittedCount === 0 && res.failedCount === 0) {
       setSubmitMessage("送信対象の記録がありません。");
@@ -125,7 +135,7 @@ export default function RecordsPage() {
     loadRankings();
   };
 
-  const bestForActiveGenre = save.runHistories.reduce<
+  const bestForActiveGenre = allSubmitCandidates.reduce<
     (typeof save.runHistories)[number] | null
   >((best, cur) => {
     if (cur.maxDamage <= 0) return best;
@@ -138,7 +148,7 @@ export default function RecordsPage() {
       genre === "daily" &&
       dailyScope === "today" &&
       todayDateKey &&
-      getTodayJstDateKey(new Date(cur.createdAt)) !== todayDateKey
+      getHistoryDailyDate(cur) !== todayDateKey
     ) {
       return best;
     }
@@ -146,7 +156,7 @@ export default function RecordsPage() {
     return cur.maxDamage > best.maxDamage ? cur : best;
   }, null);
 
-  const hasAnyPositiveHistory = save.runHistories.some((h) => h.maxDamage > 0);
+  const hasAnyPositiveHistory = allSubmitCandidates.some((h) => h.maxDamage > 0);
   const activeGenreMeta =
     RANKING_GENRE_META.find((g) => g.id === genre) ?? RANKING_GENRE_META[0];
 

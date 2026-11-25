@@ -281,6 +281,7 @@ export interface RunHistoryEntry {
   stageId: string;
   stageName: string;
   isDaily: boolean;
+  dailyDate?: string | null;
   cleared: boolean;
   reachedFloor: number;
   maxDamage: number;
@@ -308,6 +309,7 @@ export interface PlayerSaveData {
   discoveredRelics: string[];
   encounteredEnemies: string[];
   runHistories: RunHistoryEntry[];
+  bestRunRecords?: Record<string, RunHistoryEntry>;
   bestDamage: number;
   totalSummons: number;
   recentTextHashes?: string[];

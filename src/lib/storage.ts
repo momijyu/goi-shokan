@@ -7,7 +7,9 @@ import {
 } from "@/data/words";
 import { evaluateKanjiDifficulty } from "@/data/kanjiLevels";
 import { createProceduralCard, type MinedCardResult } from "@/lib/analyzer";
+import type { RunState } from "@/lib/battleEngine";
 import { hashStringToSeed } from "@/lib/bignum";
+import { getRunRankingBucketKey } from "@/lib/rankings";
 import {
   formatSkillDescription,
   type DeckPreset,
@@ -16,7 +18,16 @@ import {
   type RunHistoryEntry,
 } from "@/types/game";
 
-const STORAGE_KEY = "goi_shokan_save_v1";
+export const STORAGE_KEY = "goi_shokan_save_v1";
+const ACTIVE_RUN_STORAGE_KEY = "goi_shokan_active_run_v1";
+
+function serializeWithInfinity(value: unknown): string {
+  return JSON.stringify(value, (_key, val) => (val === Infinity ? "__INF__" : val));
+}
+
+function parseWithInfinity<T>(raw: string): T {
+  return JSON.parse(raw, (_key, val) => (val === "__INF__" ? Infinity : val)) as T;
+}
 
 function buildDefaultOwnedWords(): Record<string, OwnedWord> {
   const map: Record<string, OwnedWord> = {};
@@ -47,11 +58,28 @@ export function createInitialSaveData(): PlayerSaveData {
     discoveredRelics: [],
     encounteredEnemies: [],
     runHistories: [],
+    bestRunRecords: {},
     bestDamage: 0,
     totalSummons: 0,
     recentTextHashes: [],
     tutorialDismissed: false,
   };
+}
+
+function hasValidCardStats(word: Partial<OwnedWord>): boolean {
+  return (
+    typeof word.rank === "string" &&
+    typeof word.attribute === "string" &&
+    typeof word.cost === "number" &&
+    Number.isFinite(word.cost) &&
+    typeof word.baseAtk === "number" &&
+    Number.isFinite(word.baseAtk) &&
+    typeof word.baseDef === "number" &&
+    Number.isFinite(word.baseDef) &&
+    typeof word.skillType === "string" &&
+    typeof word.skillPower === "number" &&
+    Number.isFinite(word.skillPower)
+  );
 }
 
 function clampOwnedWords(
@@ -61,7 +89,7 @@ function clampOwnedWords(
   for (const [key, word] of Object.entries(owned)) {
     const master = getWordMaster(key);
     let synced = master ? { ...word, ...master } : { ...word };
-    if (!master && synced.rank !== "F") {
+    if (!master && synced.rank !== "F" && !hasValidCardStats(synced)) {
       const kDiff = evaluateKanjiDifficulty(synced.term);
       const inferredWordType =
         synced.rank === "UR" &&
@@ -83,15 +111,18 @@ function clampOwnedWords(
       };
     }
     // Migrate any legacy square_mult saved in localStorage
-    if ((synced.skillType as string) === "square_mult") {
+    const wasLegacySquare = (synced.skillType as string) === "square_mult";
+    if (wasLegacySquare) {
       synced.skillType = "mult_next";
       synced.skillPower = 2.2;
     }
-    synced.skillDesc = formatSkillDescription(
-      synced.skillType,
-      synced.skillPower,
-      synced.subSkill
-    );
+    if (master || synced.rank !== "F" || !synced.skillDesc || wasLegacySquare) {
+      synced.skillDesc = formatSkillDescription(
+        synced.skillType,
+        synced.skillPower,
+        synced.subSkill
+      );
+    }
     result[key] = {
       ...synced,
       obtainCount: Math.max(1, word.obtainCount),
@@ -100,18 +131,48 @@ function clampOwnedWords(
   return result;
 }
 
+function isBetterRunRecord(next: RunHistoryEntry, prev: RunHistoryEntry): boolean {
+  if (next.maxDamage !== prev.maxDamage) return next.maxDamage > prev.maxDamage;
+  if (next.reachedFloor !== prev.reachedFloor) {
+    return next.reachedFloor > prev.reachedFloor;
+  }
+  return Boolean(next.cleared) && !prev.cleared;
+}
+
+function mergeBestRunRecords(
+  existing: Record<string, RunHistoryEntry>,
+  entries: RunHistoryEntry[]
+): Record<string, RunHistoryEntry> {
+  const map: Record<string, RunHistoryEntry> = { ...existing };
+  for (const entry of entries) {
+    if (!entry || entry.maxDamage <= 0) continue;
+    const key = getRunRankingBucketKey(entry);
+    const prev = map[key];
+    if (!prev || isBetterRunRecord(entry, prev)) {
+      map[key] = entry;
+    }
+  }
+  // Keep all non-daily buckets and at most the latest 30 daily buckets
+  const dailyKeys = Object.keys(map)
+    .filter((k) => k.startsWith("daily_"))
+    .sort()
+    .reverse();
+  for (const oldKey of dailyKeys.slice(30)) {
+    delete map[oldKey];
+  }
+  return map;
+}
+
 export function loadSaveData(): PlayerSaveData {
   if (typeof window === "undefined") return createInitialSaveData();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial = createInitialSaveData();
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      window.localStorage.setItem(STORAGE_KEY, serializeWithInfinity(initial));
       return initial;
     }
-    const parsed = JSON.parse(raw, (_key, value) =>
-      value === "__INF__" ? Infinity : value
-    ) as Partial<PlayerSaveData>;
+    const parsed = parseWithInfinity<Partial<PlayerSaveData>>(raw);
     const defaults = createInitialSaveData();
     const safeHistories = Array.isArray(parsed.runHistories)
       ? parsed.runHistories.map((h) => ({
@@ -153,16 +214,40 @@ export function loadSaveData(): PlayerSaveData {
         ? parsed.activePresetId
         : null;
 
+    const rawPool = Array.isArray(parsed.deckPoolTerms) ? parsed.deckPoolTerms : [];
+    const filteredPool = Array.from(
+      new Set(rawPool.filter((t) => Boolean(ownedWords[t])))
+    ).slice(0, 30);
+    const validPool =
+      filteredPool.length >= 6
+        ? filteredPool
+        : Array.from(
+            new Set([
+              ...filteredPool,
+              ...INITIAL_POOL_TERMS.filter((t) => Boolean(ownedWords[t])),
+              ...Object.keys(ownedWords),
+            ])
+          ).slice(0, Math.max(6, filteredPool.length));
+    const validAceTerm =
+      parsed.aceTerm && ownedWords[parsed.aceTerm]
+        ? parsed.aceTerm
+        : validPool[0] ?? defaults.aceTerm;
+
+    const existingBestMap =
+      parsed.bestRunRecords && typeof parsed.bestRunRecords === "object"
+        ? parsed.bestRunRecords
+        : {};
+    const mergedBestRecords = mergeBestRunRecords(existingBestMap, safeHistories);
+
     const merged: PlayerSaveData = {
       ...defaults,
       ...parsed,
       bestDamage: typeof parsed.bestDamage === "number" ? parsed.bestDamage : 0,
       runHistories: safeHistories,
+      bestRunRecords: mergedBestRecords,
       ownedWords,
-      deckPoolTerms:
-        parsed.deckPoolTerms && parsed.deckPoolTerms.length >= 6
-          ? parsed.deckPoolTerms
-          : defaults.deckPoolTerms,
+      deckPoolTerms: validPool,
+      aceTerm: validAceTerm,
       deckPresets: safePresets,
       activePresetId: safeActivePresetId,
       recentTextHashes: parsed.recentTextHashes ?? [],
@@ -177,12 +262,46 @@ export function loadSaveData(): PlayerSaveData {
 export function saveSaveData(data: PlayerSaveData): void {
   if (typeof window === "undefined") return;
   try {
-    const serialized = JSON.stringify(data, (_key, value) =>
-      value === Infinity ? "__INF__" : value
-    );
-    window.localStorage.setItem(STORAGE_KEY, serialized);
+    window.localStorage.setItem(STORAGE_KEY, serializeWithInfinity(data));
   } catch {
     // Ignore storage quota issues safely
+  }
+}
+
+export function saveActiveRunState(run: RunState | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!run) {
+      window.localStorage.removeItem(ACTIVE_RUN_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(
+        ACTIVE_RUN_STORAGE_KEY,
+        serializeWithInfinity(run)
+      );
+    }
+  } catch {
+    // Ignore storage quota issues safely
+  }
+}
+
+export function loadActiveRunState(): RunState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_RUN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = parseWithInfinity<Partial<RunState>>(raw);
+    if (
+      !parsed ||
+      typeof parsed.runId !== "string" ||
+      typeof parsed.stageId !== "string" ||
+      !Array.isArray(parsed.deck) ||
+      !parsed.enemy
+    ) {
+      return null;
+    }
+    return parsed as RunState;
+  } catch {
+    return null;
   }
 }
 
@@ -257,7 +376,8 @@ export function getTextSignature(text: string): string {
 export function applyMiningPackToSave(
   current: PlayerSaveData,
   pack: MinedCardResult[],
-  rawText: string
+  rawText: string,
+  options?: { registerNewOnlyOnDuplicate?: boolean }
 ): {
   next: PlayerSaveData;
   newTerms: string[];
@@ -266,7 +386,40 @@ export function applyMiningPackToSave(
 } {
   const sig = getTextSignature(rawText);
   const recent = current.recentTextHashes ?? [];
+  const now = new Date().toISOString();
+
   if (recent.includes(sig)) {
+    if (options?.registerNewOnlyOnDuplicate) {
+      const nextOwned = { ...current.ownedWords };
+      const newTerms: string[] = [];
+      for (const item of pack) {
+        const term = item.entry.term;
+        if (!nextOwned[term]) {
+          nextOwned[term] = {
+            ...item.entry,
+            obtainCount: 1,
+            firstSnippet: item.snippet,
+            firstDiscoveredAt: now,
+            isUnknownGenerated: item.isUnknownGenerated,
+          };
+          newTerms.push(term);
+        }
+      }
+      if (newTerms.length > 0) {
+        const updated: PlayerSaveData = {
+          ...current,
+          ownedWords: nextOwned,
+        };
+        updated.unlockedAchievements = checkCollectionAchievements(updated);
+        saveSaveData(updated);
+        return {
+          next: updated,
+          newTerms,
+          upgradedTerms: [],
+          isDuplicateText: true,
+        };
+      }
+    }
     return {
       next: current,
       newTerms: [],
@@ -278,7 +431,6 @@ export function applyMiningPackToSave(
   const nextOwned = { ...current.ownedWords };
   const newTerms: string[] = [];
   const upgradedTerms: string[] = [];
-  const now = "2026-01-01T00:00:00.000Z";
 
   for (const item of pack) {
     const term = item.entry.term;
@@ -498,7 +650,14 @@ export function recordRunResultInSave(
     encounteredEnemies: Array.from(
       new Set([...current.encounteredEnemies, ...params.encounteredEnemies])
     ),
-    runHistories: [history, ...current.runHistories].slice(0, 30),
+    runHistories: [
+      history,
+      ...current.runHistories.filter((h) => h.id !== history.id),
+    ].slice(0, 30),
+    bestRunRecords: mergeBestRunRecords(
+      current.bestRunRecords ?? {},
+      [history]
+    ),
     bestDamage: Math.max(current.bestDamage, history.maxDamage),
     unlockedAchievements: Array.from(unlocked),
   };
@@ -511,5 +670,6 @@ export function recordRunResultInSave(
 export function resetAllSaveData(): PlayerSaveData {
   const fresh = createInitialSaveData();
   saveSaveData(fresh);
+  saveActiveRunState(null);
   return fresh;
 }

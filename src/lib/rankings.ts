@@ -184,6 +184,21 @@ export async function submitRankingScore(
   }
 }
 
+export function getHistoryDailyDate(
+  h: Pick<RunHistoryEntry, "createdAt" | "dailyDate">
+): string {
+  return h.dailyDate ?? getTodayJstDateKey(new Date(h.createdAt));
+}
+
+export function getRunRankingBucketKey(
+  h: Pick<RunHistoryEntry, "stageId" | "isDaily" | "createdAt" | "dailyDate">
+): string {
+  const genre = getRunRankingGenre(h);
+  return genre === "daily"
+    ? `daily_${getHistoryDailyDate(h)}`
+    : `${genre}_${h.stageId}`;
+}
+
 export async function submitGenreBestRecords(
   histories: RunHistoryEntry[],
   playerName: string
@@ -195,11 +210,7 @@ export async function submitGenreBestRecords(
   const bestByBucket = new Map<string, RunHistoryEntry>();
   for (const h of histories) {
     if (h.maxDamage <= 0) continue;
-    const genre = getRunRankingGenre(h);
-    const bucketKey =
-      genre === "daily"
-        ? `daily_${getTodayJstDateKey(new Date(h.createdAt))}`
-        : `${genre}_${h.stageId}`;
+    const bucketKey = getRunRankingBucketKey(h);
     const prev = bestByBucket.get(bucketKey);
     if (!prev || h.maxDamage > prev.maxDamage) {
       bestByBucket.set(bucketKey, h);
@@ -219,7 +230,7 @@ export async function submitGenreBestRecords(
         stageId: h.stageId,
         stageName: h.stageName,
         isDaily: h.isDaily,
-        dailyDate: h.isDaily ? getTodayJstDateKey(new Date(h.createdAt)) : null,
+        dailyDate: h.isDaily ? getHistoryDailyDate(h) : null,
         cleared: h.cleared,
         reachedFloor: h.reachedFloor,
         maxDamage: h.maxDamage,

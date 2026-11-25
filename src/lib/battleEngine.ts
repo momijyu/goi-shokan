@@ -92,6 +92,7 @@ export interface RunState {
   stageId: string;
   stageName: string;
   isDaily: boolean;
+  dailyDate?: string | null;
   runMode: RunDeckMode;
   randomStyle?: RandomDeckStyle;
   impromptuPool?: WordMasterEntry[];
@@ -533,8 +534,9 @@ export function startNewRun(
   options?: StartRunOptions
 ): RunState {
   const stage = getStageDef(stageId);
-  const seed = isDaily
-    ? hashStringToSeed(`daily_${getTodayJstDateKey()}`)
+  const dailyDate = isDaily ? getTodayJstDateKey() : null;
+  const seed = dailyDate
+    ? hashStringToSeed(`daily_${dailyDate}`)
     : hashStringToSeed(`${Date.now()}_${Math.random()}`);
   const rng = createSeededRng(seed);
 
@@ -587,8 +589,8 @@ export function startNewRun(
   applyOpeningEnemyGimmick(firstEnemy, initialDiscard, [], 1, startLogs);
 
   const styleMeta = RANDOM_STYLE_META.find((s) => s.id === randomStyle);
-  const resolvedStageName = isDaily
-    ? `日替わり迷宮 (${getTodayJstDateKey()})`
+  const resolvedStageName = dailyDate
+    ? `日替わり迷宮 (${dailyDate})`
     : runMode === "random" && styleMeta && randomStyle !== "chaos"
       ? `${stage.name}（${styleMeta.label}）`
       : stage.name;
@@ -598,6 +600,7 @@ export function startNewRun(
     stageId: stage.id,
     stageName: resolvedStageName,
     isDaily,
+    dailyDate,
     runMode,
     randomStyle: runMode === "random" ? randomStyle : undefined,
     impromptuPool,
