@@ -98,8 +98,8 @@ export function WordCard({
           ? "px-1 py-1.5"
           : compact
             ? className
-              ? "p-1.5 sm:p-2.5"
-              : "h-[7.375rem] p-1.5 sm:h-[8.75rem] sm:p-2.5"
+              ? "p-1.5 sm:p-2"
+              : "h-[7.375rem] p-1.5 sm:h-[8.75rem] sm:p-2"
             : "h-[14.625rem] p-2.5 sm:h-[15.25rem] sm:p-3"
       } ${
         dimUnselected && !inDeck && !isAce ? "opacity-65 hover:opacity-100" : ""
@@ -292,36 +292,28 @@ export function WordCard({
       ) : (
         <div className="relative z-10 flex items-center justify-between gap-1 border-t border-white/10 pt-1.5">
           {compact ? (
-            <div className="flex min-w-0 items-center gap-1">
-              <span
-                style={{ color: attrMeta.color }}
-                className="shrink-0 font-serif text-[11px] font-bold"
-              >
-                {attrMeta.kanji}
-              </span>
-              <span
-                style={{ color: rankMeta.color }}
-                className="hidden truncate font-mono text-[9px] tracking-tighter opacity-90 sm:inline"
-              >
-                {rankMeta.pips}
-              </span>
-            </div>
+            <span
+              style={{ color: attrMeta.color }}
+              className="shrink-0 font-serif text-[10.5px] font-bold"
+            >
+              {attrMeta.kanji}
+            </span>
           ) : (
             <span style={{ color: rankMeta.color }} className="font-mono text-[10px] font-bold">
               {rankMeta.label}
             </span>
           )}
           <div
-            className={`flex shrink-0 items-center font-mono font-bold ${
-              compact ? "gap-1 text-[10px] sm:gap-1.5 sm:text-[11px]" : "gap-2.5 text-xs"
+            className={`flex min-w-0 shrink-0 items-center font-mono font-bold ${
+              compact ? "gap-1 text-[10px]" : "gap-2.5 text-xs"
             }`}
           >
             <span className="inline-flex items-center gap-0.5 text-[#F07167]">
-              <Sword className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+              <Sword className={compact ? "h-2.5 w-2.5 shrink-0" : "h-3.5 w-3.5"} />
               {stats.atk}
             </span>
             <span className="inline-flex items-center gap-0.5 text-[#69A3D9]">
-              <Shield className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+              <Shield className={compact ? "h-2.5 w-2.5 shrink-0" : "h-3.5 w-3.5"} />
               {stats.def}
             </span>
           </div>

@@ -11,12 +11,14 @@ import {
   ChevronDown,
   ChevronRight,
   Compass,
+  Download,
   FileText,
   Flame,
   Heart,
   Layers,
   Loader2,
   RotateCcw,
+  Share2,
   Shield,
   Shuffle,
   Skull,
@@ -28,6 +30,7 @@ import {
 import { useSaveData } from "@/components/GameShell";
 import {
   AnimatedEnemySprite,
+  CardInvocationBanner,
   PlayerStripOverlay,
   type CombatVisualEffect,
 } from "@/components/BattleStageEffects";
@@ -52,6 +55,7 @@ import {
   chooseCardReward,
   chooseRelicReward,
   endPlayerTurn,
+  getCommandOutputPreview,
   getDynamicSkillPreview,
   getEffectiveCardCost,
   getEnemyCurrentIntent,
@@ -69,6 +73,12 @@ import {
   type StartRunOptions,
 } from "@/lib/battleEngine";
 import { submitRankingScore } from "@/lib/rankings";
+import {
+  buildRunShareText,
+  downloadRunShareImage,
+  openXShareIntent,
+} from "@/lib/shareUtils";
+import { playCombatSound } from "@/lib/soundFx";
 import {
   applyDeckPresetInSave,
   applyMiningPackToSave,
@@ -212,11 +222,21 @@ function renderRunMultiplierRows(run: RunState) {
           +{formatJapaneseNumber(run.battleFlatAdd).text}
         </span>
       </div>
-      <div className="flex justify-between">
+      <div className="flex items-center justify-between">
         <span className="text-[#968E7E]">戦闘乗算</span>
-        <span className="font-bold text-[#E3B94E]">
+        <motion.span
+          key={`bmult_${run.battleMult}`}
+          initial={{ scale: 1.32 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.26, ease: "easeOut" }}
+          className={`font-bold ${
+            run.battleMult >= 10_000
+              ? formatJapaneseNumber(run.battleMult).colorClass
+              : "text-[#E3B94E]"
+          }`}
+        >
           ×{formatJapaneseNumber(run.battleMult).text}
-        </span>
+        </motion.span>
       </div>
       <div className="flex justify-between">
         <span className="text-[#968E7E]">次札乗算</span>
@@ -523,10 +543,18 @@ export default function DungeonPage() {
         kind: isPierce ? "pierce" : "attack",
         amountText: fmt.text,
         subLabel,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: fmt.colorClass,
         shakeLevel: fmt.shakeLevel,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
+        isLethal,
+      });
+      playCombatSound({
+        kind: isPierce ? "pierce" : "attack",
+        shakeLevel: fmt.shakeLevel,
+        retriggers: out.retriggers,
         isLethal,
       });
     } else if (out && (out.role === "guard" || out.didShield)) {
@@ -534,20 +562,26 @@ export default function DungeonPage() {
       emitCombatFx({
         kind: "guard",
         amountText: fmt.text,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: "text-[#69A3D9]",
         shakeLevel: 0,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
       });
+      playCombatSound({ kind: "guard", shakeLevel: 0 });
     } else if (out) {
       emitCombatFx({
         kind: "skill",
         amountText: `${out.cardTerm} 発動`,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: "text-[#E3B94E]",
         shakeLevel: 0,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
       });
+      playCombatSound({ kind: "skill", shakeLevel: 0 });
     }
 
     setSelectedCardId(null);
@@ -566,7 +600,7 @@ export default function DungeonPage() {
         victoryTimerRef.current = null;
         setPendingVictoryRun(null);
         setRun(nextRun);
-      }, 560);
+      }, 680);
       return;
     }
 
@@ -591,13 +625,15 @@ export default function DungeonPage() {
     if (prevIntent.type === "attack" || prevIntent.type === "heavy_attack") {
       const dmgTaken = Math.max(0, prevIntent.value - run.playerShield);
       if (dmgTaken > 0) {
+        const enemyShake: 0 | 1 | 2 | 3 = prevIntent.type === "heavy_attack" ? 2 : 1;
         emitCombatFx({
           kind: "enemy_attack",
           amountText: formatJapaneseNumber(dmgTaken).text,
           colorClass: "text-[#F7B5AD]",
-          shakeLevel: prevIntent.type === "heavy_attack" ? 2 : 1,
+          shakeLevel: enemyShake,
           retriggers: 1,
         });
+        playCombatSound({ kind: "enemy_attack", shakeLevel: enemyShake });
       } else {
         emitCombatFx({
           kind: "enemy_blocked",
@@ -606,6 +642,7 @@ export default function DungeonPage() {
           shakeLevel: 0,
           retriggers: 1,
         });
+        playCombatSound({ kind: "enemy_blocked", shakeLevel: 0 });
       }
     } else if (prevIntent.type === "defend") {
       emitCombatFx({
@@ -615,6 +652,7 @@ export default function DungeonPage() {
         shakeLevel: 0,
         retriggers: 1,
       });
+      playCombatSound({ kind: "enemy_guard", shakeLevel: 0 });
     }
 
     setRun(nextRun);
@@ -1107,7 +1145,7 @@ export default function DungeonPage() {
 
   return (
     <div
-      className={`grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,32rem)_16.25rem] lg:justify-center ${
+      className={`grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,35rem)_16rem] lg:justify-center ${
         run.phase === "battle" ? "max-lg:h-full" : ""
       }`}
     >
@@ -1407,10 +1445,26 @@ export default function DungeonPage() {
                     : { x: 0, y: 0 }
                 }
                 transition={{ duration: 0.32 }}
-                className={`kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden ${
+                className={`kaku-frame stage-grid relative flex flex-col gap-1.5 overflow-hidden p-2.5 lg:hidden ${
                   pendingVictoryRun ? "cursor-pointer" : ""
                 }`}
               >
+                <AnimatePresence>
+                  {activeCombatFx &&
+                    (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                    (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal) && (
+                      <motion.div
+                        key={`m_flash_${activeCombatFx.id}`}
+                        aria-hidden="true"
+                        initial={{ opacity: 0.65 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.36, ease: "easeOut" }}
+                        className="pointer-events-none absolute inset-0 z-10 bg-radial from-[#F4D06F]/35 via-[#E05A47]/15 to-transparent"
+                      />
+                    )}
+                </AnimatePresence>
+                <CardInvocationBanner effect={activeCombatFx} compact />
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <div className="inline-flex items-center gap-1 border border-[#5C3530] bg-[#241212] px-1.5 py-0.5 font-mono text-[10px] text-[#E05A47]">
                     <AlertOctagon className="h-3 w-3 shrink-0" />
@@ -1517,10 +1571,26 @@ export default function DungeonPage() {
                     : { x: 0, y: 0 }
                 }
                 transition={{ duration: 0.34 }}
-                className={`kaku-frame stage-grid hidden flex-col items-center p-4 lg:flex ${
+                className={`kaku-frame stage-grid relative hidden flex-col items-center overflow-hidden p-4 lg:flex ${
                   pendingVictoryRun ? "cursor-pointer" : ""
                 }`}
               >
+                <AnimatePresence>
+                  {activeCombatFx &&
+                    (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                    (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal) && (
+                      <motion.div
+                        key={`pc_flash_${activeCombatFx.id}`}
+                        aria-hidden="true"
+                        initial={{ opacity: 0.65 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.38, ease: "easeOut" }}
+                        className="pointer-events-none absolute inset-0 z-10 bg-radial from-[#F4D06F]/35 via-[#E05A47]/15 to-transparent"
+                      />
+                    )}
+                </AnimatePresence>
+                <CardInvocationBanner effect={activeCombatFx} />
                 {/* Enemy Next Intent */}
                 <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
                   <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
@@ -1800,75 +1870,143 @@ export default function DungeonPage() {
               </div>
 
               {/* 3 Command Buttons */}
-              <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
-                {(
-                  [
-                    {
-                      role: "attack" as CommandRole,
-                      label: "こうげき",
-                      icon: Sword,
-                      accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
-                    },
-                    {
-                      role: "skill" as CommandRole,
-                      label: "スキル",
-                      icon: Sparkles,
-                      accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
-                    },
-                    {
-                      role: "guard" as CommandRole,
-                      label: "ぼうぎょ",
-                      icon: Shield,
-                      accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
-                    },
-                  ] as const
-                ).map((cmd) => {
-                  const Icon = cmd.icon;
-                  const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
-                  const guardLocked =
-                    cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
-                  const affordable =
-                    !pendingVictoryRun &&
-                    !guardLocked &&
-                    !isChokerCapped &&
-                    Boolean(selectedCard) &&
-                    (run.energy >= cost || hasOverclock);
-                  const bonusTag =
-                    selectedCard && cmd.role === "attack"
-                      ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
-                        ? "×1.25"
-                        : selectedCard.attribute === "logic" &&
-                            (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
-                          ? "貫通"
-                          : null
-                      : selectedCard &&
-                          cmd.role === "guard" &&
-                          (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
-                        ? "×1.25"
-                        : null;
-                  return (
-                    <button
-                      key={cmd.role}
-                      type="button"
-                      disabled={!affordable}
-                      onClick={() => handlePlayCommand(cmd.role)}
-                      className={`flex items-center justify-center gap-1 border py-2 font-serif text-xs font-extrabold tracking-wider transition-colors lg:gap-1.5 lg:py-2.5 lg:text-sm ${
-                        affordable
-                          ? cmd.accent
-                          : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
-                      {bonusTag && affordable && (
-                        <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[9px] lg:text-[10px]">
-                          {bonusTag}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const commandPreview =
+                  selectedCard && run.phase === "battle" && !pendingVictoryRun && !isChokerCapped
+                    ? getCommandOutputPreview(run, selectedCard)
+                    : null;
+                return (
+                  <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
+                    {(
+                      [
+                        {
+                          role: "attack" as CommandRole,
+                          label: "こうげき",
+                          icon: Sword,
+                          accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
+                        },
+                        {
+                          role: "skill" as CommandRole,
+                          label: "スキル",
+                          icon: Sparkles,
+                          accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
+                        },
+                        {
+                          role: "guard" as CommandRole,
+                          label: "ぼうぎょ",
+                          icon: Shield,
+                          accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
+                        },
+                      ] as const
+                    ).map((cmd) => {
+                      const Icon = cmd.icon;
+                      const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
+                      const guardLocked =
+                        cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
+                      const affordable =
+                        !pendingVictoryRun &&
+                        !guardLocked &&
+                        !isChokerCapped &&
+                        Boolean(selectedCard) &&
+                        (run.energy >= cost || hasOverclock);
+                      const bonusTag =
+                        selectedCard && cmd.role === "attack"
+                          ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
+                            ? "×1.25"
+                            : selectedCard.attribute === "logic" &&
+                                (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
+                              ? "貫通"
+                              : null
+                          : selectedCard &&
+                              cmd.role === "guard" &&
+                              (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
+                            ? "×1.25"
+                            : null;
+
+                      let previewText: string | null = null;
+                      let isLethalPreview = false;
+                      if (commandPreview && selectedCard) {
+                        if (cmd.role === "attack") {
+                          const multi =
+                            commandPreview.attackRetriggers > 1
+                              ? `${commandPreview.attackRetriggers}連 `
+                              : "";
+                          previewText = `${multi}約${formatJapaneseNumber(commandPreview.attackDamage).text}`;
+                          isLethalPreview = commandPreview.attackLethal;
+                        } else if (cmd.role === "guard") {
+                          if (guardLocked) {
+                            previewText = "封印中";
+                          } else {
+                            const multi =
+                              commandPreview.guardRetriggers > 1
+                                ? `${commandPreview.guardRetriggers}連 `
+                                : "";
+                            previewText = `${multi}盾 +${formatJapaneseNumber(commandPreview.guardShield).text}`;
+                          }
+                        } else if (commandPreview.skillDamage > 0) {
+                          const multi =
+                            commandPreview.skillRetriggers > 1
+                              ? `${commandPreview.skillRetriggers}連 `
+                              : "";
+                          previewText = `${multi}攻約${formatJapaneseNumber(commandPreview.skillDamage).text}`;
+                        } else if (commandPreview.skillShield > 0) {
+                          const multi =
+                            commandPreview.skillRetriggers > 1
+                              ? `${commandPreview.skillRetriggers}連 `
+                              : "";
+                          previewText = `${multi}盾 +${formatJapaneseNumber(commandPreview.skillShield).text}`;
+                        } else {
+                          previewText = SKILL_META[selectedCard.skillType].shortTag;
+                        }
+                      }
+
+                      return (
+                        <button
+                          key={cmd.role}
+                          type="button"
+                          disabled={!affordable}
+                          onClick={() => handlePlayCommand(cmd.role)}
+                          className={`flex flex-col items-center justify-center gap-0.5 border py-1.5 font-serif transition-colors lg:py-2 ${
+                            affordable
+                              ? cmd.accent
+                              : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-1 text-xs font-extrabold tracking-wider lg:gap-1.5 lg:text-sm">
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
+                            {bonusTag && affordable && (
+                              <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[9px] lg:text-[10px]">
+                                {bonusTag}
+                              </span>
+                            )}
+                          </div>
+                          {previewText && (
+                            <div className="flex items-center gap-1 font-mono text-[10px] leading-none lg:text-[11px]">
+                              <span
+                                className={
+                                  affordable
+                                    ? isLethalPreview
+                                      ? "font-extrabold text-[#F5D76E]"
+                                      : "font-bold opacity-90"
+                                    : "text-[#6E675C]"
+                                }
+                              >
+                                {previewText}
+                              </span>
+                              {isLethalPreview && affordable && (
+                                <span className="border border-[#E3B94E]/60 bg-[#2E1E0A] px-1 py-0.2 text-[9px] font-extrabold text-[#F5D76E]">
+                                  撃破
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Mobile Hand Cards: Fits 1–5 cards cleanly without horizontal clipping; 6+ cards scroll smoothly */}
               {(() => {
@@ -2711,6 +2849,53 @@ export default function DungeonPage() {
                 凱旋して記録を残す
               </button>
             </div>
+            <div className="flex flex-col gap-2.5 border border-[#4A3E2A] bg-[#141118] p-3 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-serif text-xs font-bold text-[#F7F3EA]">
+                  <Share2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                  <span>踏破記録をXでシェア</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-[#A89F8E]">
+                  最大一撃や遺物入りの戦績画像を保存してポストに添付できます。
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildRunShareText({
+                        stageName: run.stageName,
+                        floor: run.floor,
+                        maxDamage: run.maxDamageDealt,
+                        cleared: true,
+                        relicCount: run.relicIds.length,
+                      })
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#F7F3EA] bg-[#F7F3EA] px-3.5 py-2 font-mono text-xs font-extrabold text-[#0B0A0E] hover:bg-white"
+                >
+                  <span>𝕏 ポストする</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadRunShareImage({
+                      stageName: run.stageName,
+                      floor: run.floor,
+                      maxDamage: run.maxDamageDealt,
+                      cleared: true,
+                      relicCount: run.relicIds.length,
+                      aceTerm: save.aceTerm,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#221B11] px-3 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#312617]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>画像保存 (PNG)</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -2730,6 +2915,53 @@ export default function DungeonPage() {
                 <strong className="text-base text-[#E3B94E]">
                   {formatJapaneseNumber(run.maxDamageDealt).text}
                 </strong>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2.5 border border-[#4A3E2A] bg-[#141118] p-3 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-serif text-xs font-bold text-[#F7F3EA]">
+                  <Share2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                  <span>挑戦記録をXでシェア</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-[#A89F8E]">
+                  最大一撃と到達階数の戦績画像を保存して添付できます。
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildRunShareText({
+                        stageName: run.stageName,
+                        floor: run.floor,
+                        maxDamage: run.maxDamageDealt,
+                        cleared: run.isEndless,
+                        relicCount: run.relicIds.length,
+                      })
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#F7F3EA] bg-[#F7F3EA] px-3.5 py-2 font-mono text-xs font-extrabold text-[#0B0A0E] hover:bg-white"
+                >
+                  <span>𝕏 ポストする</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadRunShareImage({
+                      stageName: run.stageName,
+                      floor: run.floor,
+                      maxDamage: run.maxDamageDealt,
+                      cleared: run.isEndless,
+                      relicCount: run.relicIds.length,
+                      aceTerm: save.aceTerm,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#221B11] px-3 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#312617]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>画像保存 (PNG)</span>
+                </button>
               </div>
             </div>
             <button

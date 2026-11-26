@@ -19,6 +19,8 @@ import {
   Pickaxe,
   Trophy,
   UserCheck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import {
@@ -29,6 +31,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatJapaneseNumber } from "@/lib/bignum";
+import { getXCreatorHandle, getXCreatorProfileUrl } from "@/lib/shareUtils";
+import {
+  isSoundMuted,
+  subscribeSoundMute,
+  toggleSoundMuted,
+} from "@/lib/soundFx";
 import {
   createInitialSaveData,
   loadSaveData,
@@ -118,6 +126,11 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const hydrated = useSyncExternalStore(
     emptySubscribe,
     () => true,
+    () => false
+  );
+  const soundMuted = useSyncExternalStore(
+    subscribeSoundMute,
+    isSoundMuted,
     () => false
   );
   const [guestNameInput, setGuestNameInput] = useState("");
@@ -217,9 +230,9 @@ export function GameShell({ children }: { children: React.ReactNode }) {
       >
         {/* PC & Top Header (HyperUI-inspired clean structural bar) */}
         <header className="sticky top-0 z-40 border-b border-[#2E2822] bg-[#0B0A0E]">
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="inline-flex h-7 w-7 items-center justify-center border border-[#C93A2B] bg-[#241010] font-serif text-sm font-extrabold text-[#ECE6D8]">
+          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6 lg:max-w-[78rem]">
+            <Link href="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center border border-[#C93A2B] bg-[#241010] font-serif text-sm font-extrabold text-[#ECE6D8]">
                 語
               </span>
               <div className="leading-none">
@@ -233,7 +246,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             {/* PC Top Nav */}
-            <nav className="hidden items-center gap-1 md:flex">
+            <nav className="hidden shrink-0 items-center gap-1 md:flex">
               {NAV_ITEMS.map((item) => {
                 const active = pathname === item.href;
                 const Icon = item.icon;
@@ -241,13 +254,13 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                       active
                         ? "border-[#8A7348] bg-[#1B1720] text-[#E3B94E]"
                         : "border-transparent text-[#A89F8E] hover:border-[#2E2822] hover:bg-[#141218] hover:text-[#ECE6D8]"
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span>{item.fullLabel}</span>
                   </Link>
                 );
@@ -255,8 +268,8 @@ export function GameShell({ children }: { children: React.ReactNode }) {
             </nav>
 
             {/* Right Status + Help + Guest/Account Modal */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="hidden items-center gap-3 border border-[#2A241E] bg-[#121016] px-2.5 py-1 font-mono text-[11px] sm:flex">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <div className="hidden shrink-0 items-center gap-2.5 whitespace-nowrap border border-[#2A241E] bg-[#121016] px-2.5 py-1 font-mono text-[11px] sm:flex">
                 <span className="text-[#968E7E]">
                   語彙 <strong className="text-[#ECE6D8]">{ownedCount}</strong>
                 </span>
@@ -269,9 +282,26 @@ export function GameShell({ children }: { children: React.ReactNode }) {
 
               <button
                 type="button"
+                onClick={() => toggleSoundMuted()}
+                aria-label={soundMuted ? "効果音をオンにする" : "効果音をミュートする"}
+                title={soundMuted ? "効果音 OFF" : "効果音 ON"}
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap border border-[#3A332A] bg-[#141218] px-2 py-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
+              >
+                {hydrated && soundMuted ? (
+                  <VolumeX className="h-3.5 w-3.5 shrink-0 text-[#8E8678]" />
+                ) : (
+                  <Volume2 className="h-3.5 w-3.5 shrink-0 text-[#E3B94E]" />
+                )}
+                <span className="hidden font-mono text-[10px] font-bold sm:inline">
+                  {hydrated && soundMuted ? "無音" : "SE"}
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setManualTutorialOpen(true)}
                 aria-label="遊び方ガイドを開く"
-                className="flex items-center gap-1 border border-[#3A332A] bg-[#141218] px-2 py-1.5 text-xs text-[#E3B94E] transition-colors hover:border-[#8A7348] hover:bg-[#1E1912]"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap border border-[#3A332A] bg-[#141218] px-2 py-1.5 text-xs text-[#E3B94E] transition-colors hover:border-[#8A7348] hover:bg-[#1E1912]"
               >
                 <HelpCircle className="h-3.5 w-3.5 shrink-0" />
                 <span className="hidden font-medium sm:inline">遊び方</span>
@@ -283,7 +313,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                     <button
                       type="button"
                       title="召喚士名を変更"
-                      className="flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-2.5 py-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#ECE6D8]"
+                      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap border border-[#3A332A] bg-[#141218] px-2.5 py-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#ECE6D8]"
                     />
                   }
                 >
@@ -375,7 +405,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Content */}
         <main
-          className={`mx-auto w-full max-w-6xl flex-1 sm:px-6 ${
+          className={`mx-auto w-full max-w-6xl flex-1 sm:px-6 lg:max-w-[78rem] ${
             isMobileDungeonImmersive
               ? "min-h-0 px-2.5 pt-1.5 pb-0 max-lg:overflow-y-auto max-lg:overscroll-none lg:pt-4 lg:pb-8"
               : "px-3 pt-4 pb-6 md:pb-8"
@@ -386,7 +416,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
 
         {/* Subtle Legal & Data Attribution Footer (Visible on both Mobile and PC; hidden on mobile during active dungeon run to prevent mis-taps & vertical scroll) */}
         <footer
-          className={`mx-auto w-full max-w-6xl flex-col gap-1.5 border-t border-[#221D18] px-3 pt-3 pb-20 font-mono text-[10px] text-[#6B6458] sm:px-6 md:flex-row md:items-center md:justify-between md:py-3 ${
+          className={`mx-auto w-full max-w-6xl flex-col gap-1.5 border-t border-[#221D18] px-3 pt-3 pb-20 font-mono text-[10px] text-[#6B6458] sm:px-6 md:flex-row md:items-center md:justify-between md:py-3 lg:max-w-[78rem] ${
             isMobileDungeonImmersive ? "hidden lg:flex" : "flex"
           }`}
         >
@@ -394,6 +424,16 @@ export function GameShell({ children }: { children: React.ReactNode }) {
             辞書・語釈：kuromoji (Apache-2.0) / IPAdic (NAIST・ICOT) / SudachiDict (Apache-2.0) / 日本語WordNet (NICT)
           </span>
           <div className="flex flex-wrap items-center gap-3">
+            {getXCreatorProfileUrl() && (
+              <a
+                href={getXCreatorProfileUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[#E3B94E]"
+              >
+                制作: @{getXCreatorHandle()} (X)
+              </a>
+            )}
             <a
               href="/THIRD_PARTY_NOTICES.txt"
               target="_blank"

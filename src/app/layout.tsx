@@ -3,13 +3,20 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { GameShell } from "@/components/GameShell";
 import "./globals.css";
 
+const rawCfPagesUrl = process.env.CF_PAGES_URL?.trim();
+const cfPagesUrl = rawCfPagesUrl
+  ? rawCfPagesUrl.startsWith("http")
+    ? rawCfPagesUrl
+    : `https://${rawCfPagesUrl}`
+  : "";
+
 const siteBaseUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
+      : cfPagesUrl || "http://localhost:3000");
 
 export const viewport: Viewport = {
   width: "device-width",
