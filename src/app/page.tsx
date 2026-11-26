@@ -58,6 +58,7 @@ export default function SummonHallPage() {
   const [upgradedTerms, setUpgradedTerms] = useState<string[]>([]);
   const [revealSeq, setRevealSeq] = useState(0);
   const [selectedCard, setSelectedCard] = useState<MinedCardResult | null>(null);
+  const [savedShareImg, setSavedShareImg] = useState(false);
   const revealSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export default function SummonHallPage() {
         setUpgradedTerms(applied.upgradedTerms);
         setDuplicateNotice(applied.isDuplicateText);
         setRevealSeq((n) => n + 1);
+        setSavedShareImg(false);
         setResult(summary);
         const topRank = summary.packCards.some((c) => c.entry.rank === "UR")
           ? "UR"
@@ -339,7 +341,7 @@ export default function SummonHallPage() {
               isDuplicate={duplicateNotice}
             />
 
-            <div className="mb-4 flex flex-col justify-between gap-2.5 border-b border-[#2E2822] pb-3 sm:flex-row sm:items-center">
+            <div className="mb-4 flex flex-col justify-between gap-2 border-b border-[#2E2822] pb-3 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#E3B94E]" />
                 <h2 className="font-serif text-lg font-extrabold text-[#F7F3EA]">
@@ -349,42 +351,12 @@ export default function SummonHallPage() {
                   （抽出総数 {result.totalExtractedWords}語中 ピックアップ {result.packCards.length}枚）
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openXShareIntent(
-                      buildMiningShareText(
-                        result.packCards,
-                        result.totalExtractedWords
-                      )
-                    )
-                  }
-                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-mono text-[11px] font-bold text-[#F4D06F] transition-colors hover:border-[#D4AF37] hover:bg-[#352A14]"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  <span>結果をXでポスト</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    downloadMiningShareImage(
-                      result.packCards,
-                      result.totalExtractedWords
-                    )
-                  }
-                  className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-2.5 py-1 font-mono text-[11px] font-bold text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>画像保存</span>
-                </button>
-                <Link
-                  href="/deck"
-                  className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
-                >
-                  マイ辞書を整理する ({save.deckPoolTerms.length}/30) →
-                </Link>
-              </div>
+              <Link
+                href="/deck"
+                className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
+              >
+                マイ辞書を確認 ({save.deckPoolTerms.length}/30) →
+              </Link>
             </div>
 
             {duplicateNotice && (
@@ -461,6 +433,60 @@ export default function SummonHallPage() {
                   </MiningCardRevealFrame>
                 );
               })}
+            </div>
+
+            {/* Share Results Bar */}
+            <div className="mt-4 flex flex-col justify-between gap-3 border border-[#4A3E2A] bg-[#141118] px-3.5 py-3 sm:flex-row sm:items-center">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 font-serif text-sm font-bold text-[#F7F3EA]">
+                  <Share2 className="h-4 w-4 text-[#E3B94E]" />
+                  <span>おもしろい語彙が出たらXでシェア！</span>
+                </div>
+                <p className="text-[11px] text-[#A89F8E]">
+                  {savedShareImg
+                    ? "画像を保存しました！Xの投稿画面でそのまま添付できます。"
+                    : "結果画像（PNG）を保存してポストに添付するとタイムラインで目立ちます。"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildMiningShareText(
+                        result.packCards,
+                        result.totalExtractedWords
+                      )
+                    )
+                  }
+                  className="inline-flex items-center justify-center gap-1.5 border border-[#F7F3EA] bg-[#F7F3EA] px-4 py-2 font-mono text-xs font-extrabold text-[#0B0A0E] shadow-sm transition-colors hover:bg-white"
+                >
+                  <span>𝕏 ポストする</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadMiningShareImage(
+                      result.packCards,
+                      result.totalExtractedWords
+                    );
+                    setSavedShareImg(true);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 border border-[#8A7348] bg-[#221B11] px-3.5 py-2 font-mono text-xs font-bold text-[#F4D06F] transition-colors hover:border-[#D4AF37] hover:bg-[#312617]"
+                >
+                  {savedShareImg ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-[#6EE7B7]" />
+                      <span className="text-[#6EE7B7]">画像保存済み</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-3.5 w-3.5" />
+                      <span>結果画像を保存 (PNG)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Attribute Balance Bar */}

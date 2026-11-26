@@ -2767,42 +2767,52 @@ export default function DungeonPage() {
                 凱旋して記録を残す
               </button>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[#2E2822] pt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  openXShareIntent(
-                    buildRunShareText({
+            <div className="flex flex-col gap-2.5 border border-[#4A3E2A] bg-[#141118] p-3 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-serif text-xs font-bold text-[#F7F3EA]">
+                  <Share2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                  <span>踏破記録をXでシェア</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-[#A89F8E]">
+                  最大一撃や遺物入りの戦績画像を保存してポストに添付できます。
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildRunShareText({
+                        stageName: run.stageName,
+                        floor: run.floor,
+                        maxDamage: run.maxDamageDealt,
+                        cleared: true,
+                        relicCount: run.relicIds.length,
+                      })
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#F7F3EA] bg-[#F7F3EA] px-3.5 py-2 font-mono text-xs font-extrabold text-[#0B0A0E] hover:bg-white"
+                >
+                  <span>𝕏 ポストする</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadRunShareImage({
                       stageName: run.stageName,
                       floor: run.floor,
                       maxDamage: run.maxDamageDealt,
                       cleared: true,
                       relicCount: run.relicIds.length,
+                      aceTerm: save.aceTerm,
                     })
-                  )
-                }
-                className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-3.5 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#352A14]"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                <span>踏破結果をXでポスト</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  downloadRunShareImage({
-                    stageName: run.stageName,
-                    floor: run.floor,
-                    maxDamage: run.maxDamageDealt,
-                    cleared: true,
-                    relicCount: run.relicIds.length,
-                    aceTerm: save.aceTerm,
-                  })
-                }
-                className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-3.5 py-2 font-mono text-xs font-bold text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E]"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>戦績画像を保存</span>
-              </button>
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#221B11] px-3 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#312617]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>画像保存 (PNG)</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2825,51 +2835,61 @@ export default function DungeonPage() {
                 </strong>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  openXShareIntent(
-                    buildRunShareText({
+            <div className="flex flex-col gap-2.5 border border-[#4A3E2A] bg-[#141118] p-3 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 font-serif text-xs font-bold text-[#F7F3EA]">
+                  <Share2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                  <span>挑戦記録をXでシェア</span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-[#A89F8E]">
+                  最大一撃と到達階数の戦績画像を保存して添付できます。
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildRunShareText({
+                        stageName: run.stageName,
+                        floor: run.floor,
+                        maxDamage: run.maxDamageDealt,
+                        cleared: run.isEndless,
+                        relicCount: run.relicIds.length,
+                      })
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#F7F3EA] bg-[#F7F3EA] px-3.5 py-2 font-mono text-xs font-extrabold text-[#0B0A0E] hover:bg-white"
+                >
+                  <span>𝕏 ポストする</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadRunShareImage({
                       stageName: run.stageName,
                       floor: run.floor,
                       maxDamage: run.maxDamageDealt,
                       cleared: run.isEndless,
                       relicCount: run.relicIds.length,
+                      aceTerm: save.aceTerm,
                     })
-                  )
-                }
-                className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-4 py-2.5 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#352A14]"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                <span>戦績をXでポスト</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  downloadRunShareImage({
-                    stageName: run.stageName,
-                    floor: run.floor,
-                    maxDamage: run.maxDamageDealt,
-                    cleared: run.isEndless,
-                    relicCount: run.relicIds.length,
-                    aceTerm: save.aceTerm,
-                  })
-                }
-                className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-4 py-2.5 font-mono text-xs font-bold text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E]"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>画像保存</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRun(null)}
-                className="inline-flex items-center gap-2 border border-[#8A7348] bg-[#1A1620] px-6 py-2.5 font-serif text-sm font-bold text-[#ECE6D8] hover:border-[#D4AF37]"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>ロビーへ戻る</span>
-              </button>
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#221B11] px-3 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#312617]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>画像保存 (PNG)</span>
+                </button>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setRun(null)}
+              className="inline-flex items-center gap-2 border border-[#8A7348] bg-[#1A1620] px-6 py-2.5 font-serif text-sm font-bold text-[#ECE6D8] hover:border-[#D4AF37]"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>ロビーへ戻る</span>
+            </button>
           </div>
         )}
       </section>

@@ -284,13 +284,16 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                 onClick={() => toggleSoundMuted()}
                 aria-label={soundMuted ? "効果音をオンにする" : "効果音をミュートする"}
                 title={soundMuted ? "効果音 OFF" : "効果音 ON"}
-                className="flex items-center justify-center border border-[#3A332A] bg-[#141218] p-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
+                className="flex items-center gap-1 border border-[#3A332A] bg-[#141218] px-2 py-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
               >
                 {hydrated && soundMuted ? (
-                  <VolumeX className="h-3.5 w-3.5 text-[#8E8678]" />
+                  <VolumeX className="h-3.5 w-3.5 shrink-0 text-[#8E8678]" />
                 ) : (
-                  <Volume2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                  <Volume2 className="h-3.5 w-3.5 shrink-0 text-[#E3B94E]" />
                 )}
+                <span className="hidden font-mono text-[10px] font-bold sm:inline">
+                  {hydrated && soundMuted ? "無音" : "SE"}
+                </span>
               </button>
 
               <button
