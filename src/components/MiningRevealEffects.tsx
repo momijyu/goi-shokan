@@ -14,6 +14,75 @@ interface ExcavationBannerBurstProps {
   isDuplicate: boolean;
 }
 
+const BURST_PARTICLES = [
+  { x: -160, y: -60 },
+  { x: 165, y: -55 },
+  { x: -220, y: 15 },
+  { x: 225, y: 20 },
+  { x: -110, y: -95 },
+  { x: 115, y: -90 },
+  { x: -140, y: 85 },
+  { x: 145, y: 90 },
+  { x: 0, y: -110 },
+  { x: 0, y: 105 },
+];
+
+/**
+ * Brief high-energy summon ritual seal shown right before pack cards appear.
+ */
+export function SummonCeremonyPanel() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.04 }}
+      transition={{ duration: 0.18 }}
+      className="kaku-frame relative flex flex-col items-center justify-center overflow-hidden py-14 text-center"
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          background:
+            "radial-gradient(circle at center, rgba(212,175,55,0.22) 0%, transparent 65%)",
+        }}
+        className="pointer-events-none absolute inset-0"
+      />
+      <motion.svg
+        viewBox="0 0 120 120"
+        animate={{ rotate: 180, scale: [0.82, 1.06, 0.96] }}
+        transition={{ duration: 0.48, ease: "easeInOut" }}
+        className="h-24 w-24 text-[#E3B94E] drop-shadow-[0_0_18px_rgba(244,208,111,0.55)]"
+      >
+        <polygon
+          points="60,6 98,22 114,60 98,98 60,114 22,98 6,60 22,22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        />
+        <rect
+          x="26"
+          y="26"
+          width="68"
+          height="68"
+          fill="none"
+          stroke="#F4D06F"
+          strokeWidth="1.8"
+          transform="rotate(45 60 60)"
+        />
+        <circle cx="60" cy="60" r="18" fill="none" stroke="#E05A47" strokeWidth="2" />
+      </motion.svg>
+      <motion.p
+        initial={{ opacity: 0.4, letterSpacing: "0.18em" }}
+        animate={{ opacity: 1, letterSpacing: "0.32em" }}
+        transition={{ duration: 0.35 }}
+        className="mt-3 font-serif text-base font-extrabold text-[#F7F3EA]"
+      >
+        言霊召喚 — 解析中
+      </motion.p>
+    </motion.div>
+  );
+}
+
 /**
  * Full-panel summon burst overlay triggered right when a pack is excavated.
  */
@@ -27,23 +96,52 @@ export function SummonPortalFlash({
   hasSSR: boolean;
 }) {
   const accent = hasUR
-    ? "rgba(224, 90, 71, 0.36)"
+    ? "rgba(224, 90, 71, 0.45)"
     : hasSSR
-      ? "rgba(244, 208, 111, 0.32)"
-      : "rgba(212, 175, 55, 0.2)";
+      ? "rgba(244, 208, 111, 0.4)"
+      : "rgba(212, 175, 55, 0.24)";
+  const sparkColor = hasUR ? "#F07167" : hasSSR ? "#F4D06F" : "#E3B94E";
 
   return (
-    <motion.div
+    <div
       key={`portal_flash_${revealSeq}`}
       aria-hidden="true"
-      initial={{ opacity: 0.95, scale: 0.88 }}
-      animate={{ opacity: 0, scale: 1.12 }}
-      transition={{ duration: hasUR ? 0.72 : 0.52, ease: "easeOut" }}
-      style={{
-        background: `radial-gradient(circle at 50% 35%, ${accent} 0%, transparent 68%)`,
-      }}
-      className="pointer-events-none absolute inset-0 z-20"
-    />
+      className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center overflow-hidden"
+    >
+      <motion.div
+        initial={{ opacity: 0.95, scale: 0.84 }}
+        animate={{ opacity: 0, scale: 1.18 }}
+        transition={{ duration: hasUR ? 0.78 : 0.56, ease: "easeOut" }}
+        style={{
+          background: `radial-gradient(circle at 50% 35%, ${accent} 0%, transparent 68%)`,
+        }}
+        className="absolute inset-0"
+      />
+      {(hasUR || hasSSR) && (
+        <motion.div
+          initial={{ scale: 0.3, opacity: 0.9, rotate: 0 }}
+          animate={{ scale: 2.2, opacity: 0, rotate: 90 }}
+          transition={{ duration: 0.72, ease: "easeOut" }}
+          style={{ borderColor: sparkColor }}
+          className="h-36 w-36 rounded-full border-2"
+        />
+      )}
+      {BURST_PARTICLES.map((p, idx) => (
+        <motion.span
+          key={`${p.x}_${p.y}`}
+          initial={{ x: 0, y: -40, scale: 1.3, opacity: 0.95 }}
+          animate={{
+            x: p.x * (hasUR ? 1.35 : 1),
+            y: -40 + p.y * (hasUR ? 1.35 : 1),
+            scale: 0.2,
+            opacity: 0,
+          }}
+          transition={{ duration: 0.62, delay: idx * 0.015, ease: "easeOut" }}
+          style={{ backgroundColor: idx % 2 === 0 ? "#F7F3EA" : sparkColor }}
+          className="absolute h-2 w-2"
+        />
+      ))}
+    </div>
   );
 }
 

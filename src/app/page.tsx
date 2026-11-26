@@ -22,6 +22,7 @@ import { useSaveData } from "@/components/GameShell";
 import {
   ExcavationBannerBurst,
   MiningCardRevealFrame,
+  SummonCeremonyPanel,
   SummonPortalFlash,
 } from "@/components/MiningRevealEffects";
 import { WordCard } from "@/components/WordCard";
@@ -57,6 +58,7 @@ export default function SummonHallPage() {
   const [newTerms, setNewTerms] = useState<string[]>([]);
   const [upgradedTerms, setUpgradedTerms] = useState<string[]>([]);
   const [revealSeq, setRevealSeq] = useState(0);
+  const [showCeremony, setShowCeremony] = useState(false);
   const [selectedCard, setSelectedCard] = useState<MinedCardResult | null>(null);
   const [savedShareImg, setSavedShareImg] = useState(false);
   const revealSectionRef = useRef<HTMLElement | null>(null);
@@ -79,11 +81,17 @@ export default function SummonHallPage() {
       return;
     }
     setLoading(true);
+    setShowCeremony(true);
     setErrorMsg(null);
     setDuplicateNotice(false);
     playMiningStartSound();
     try {
-      const summary = await analyzeTextForPack(text);
+      const [summary] = await Promise.all([
+        analyzeTextForPack(text),
+        new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 380);
+        }),
+      ]);
       if (summary.packCards.length === 0) {
         setErrorMsg(
           "抽出できる語彙が見つかりませんでした。もう少し日本語の名詞・動詞・形容詞を含めてください。"
@@ -110,6 +118,7 @@ export default function SummonHallPage() {
     } catch {
       setErrorMsg("形態素辞書の読み込みに失敗しました。再試行してください。");
     } finally {
+      setShowCeremony(false);
       setLoading(false);
     }
   };
@@ -318,7 +327,10 @@ export default function SummonHallPage() {
 
       {/* Pack Reveal Results */}
       <AnimatePresence mode="wait">
-        {result && (
+        {showCeremony ? (
+          <SummonCeremonyPanel key="summon_ceremony" />
+        ) : (
+          result && (
           <motion.section
             ref={revealSectionRef}
             key={`reveal_${revealSeq}`}
@@ -545,6 +557,7 @@ export default function SummonHallPage() {
               </Link>
             </div>
           </motion.section>
+          )
         )}
       </AnimatePresence>
 

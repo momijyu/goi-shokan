@@ -30,6 +30,7 @@ import {
 import { useSaveData } from "@/components/GameShell";
 import {
   AnimatedEnemySprite,
+  CardInvocationBanner,
   PlayerStripOverlay,
   type CombatVisualEffect,
 } from "@/components/BattleStageEffects";
@@ -220,11 +221,21 @@ function renderRunMultiplierRows(run: RunState) {
           +{formatJapaneseNumber(run.battleFlatAdd).text}
         </span>
       </div>
-      <div className="flex justify-between">
+      <div className="flex items-center justify-between">
         <span className="text-[#968E7E]">戦闘乗算</span>
-        <span className="font-bold text-[#E3B94E]">
+        <motion.span
+          key={`bmult_${run.battleMult}`}
+          initial={{ scale: 1.32 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.26, ease: "easeOut" }}
+          className={`font-bold ${
+            run.battleMult >= 10_000
+              ? formatJapaneseNumber(run.battleMult).colorClass
+              : "text-[#E3B94E]"
+          }`}
+        >
           ×{formatJapaneseNumber(run.battleMult).text}
-        </span>
+        </motion.span>
       </div>
       <div className="flex justify-between">
         <span className="text-[#968E7E]">次札乗算</span>
@@ -588,7 +599,7 @@ export default function DungeonPage() {
         victoryTimerRef.current = null;
         setPendingVictoryRun(null);
         setRun(nextRun);
-      }, 560);
+      }, 680);
       return;
     }
 
@@ -1452,6 +1463,7 @@ export default function DungeonPage() {
                       />
                     )}
                 </AnimatePresence>
+                <CardInvocationBanner effect={activeCombatFx} compact />
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <div className="inline-flex items-center gap-1 border border-[#5C3530] bg-[#241212] px-1.5 py-0.5 font-mono text-[10px] text-[#E05A47]">
                     <AlertOctagon className="h-3 w-3 shrink-0" />
@@ -1577,6 +1589,7 @@ export default function DungeonPage() {
                       />
                     )}
                 </AnimatePresence>
+                <CardInvocationBanner effect={activeCombatFx} />
                 {/* Enemy Next Intent */}
                 <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
                   <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
