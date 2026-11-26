@@ -1144,7 +1144,7 @@ export default function DungeonPage() {
 
   return (
     <div
-      className={`grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,32rem)_16.25rem] lg:justify-center ${
+      className={`grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,35rem)_16rem] lg:justify-center ${
         run.phase === "battle" ? "max-lg:h-full" : ""
       }`}
     >
