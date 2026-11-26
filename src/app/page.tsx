@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -49,8 +50,12 @@ import {
 } from "@/types/game";
 
 export default function SummonHallPage() {
+  const router = useRouter();
   const { save, hydrated, setSave, openTutorial, openAccountModal } = useSaveData();
-  const [text, setText] = useState("");
+  const [textDraft, setTextDraft] = useState<string | null>(null);
+  const text =
+    textDraft ??
+    (hydrated && save.totalSummons === 0 ? MINING_SAMPLE_TEXTS[0].text : "");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState(false);
@@ -79,6 +84,9 @@ export default function SummonHallPage() {
     if (!text.trim()) {
       setErrorMsg("文章を入力してください。");
       return;
+    }
+    if (textDraft === null) {
+      setTextDraft(text);
     }
     setLoading(true);
     setShowCeremony(true);
@@ -135,6 +143,34 @@ export default function SummonHallPage() {
       const nextPool = [...save.deckPoolTerms, term];
       setSave(updateDeckPoolInSave(save, nextPool, save.aceTerm));
     }
+  };
+
+  const poolSlotsLeft = Math.max(0, 30 - save.deckPoolTerms.length);
+  const addablePackTerms = result
+    ? Array.from(
+        new Set(
+          result.packCards
+            .filter(
+              (c) =>
+                c.entry.rank !== "F" &&
+                !save.deckPoolTerms.includes(c.entry.term)
+            )
+            .map((c) => c.entry.term)
+        )
+      ).slice(0, poolSlotsLeft)
+    : [];
+
+  const handleBulkAddToPool = () => {
+    if (addablePackTerms.length === 0) return;
+    const nextPool = [...save.deckPoolTerms, ...addablePackTerms].slice(0, 30);
+    setSave(updateDeckPoolInSave(save, nextPool, save.aceTerm));
+  };
+
+  const handleAddAllAndGoDungeon = () => {
+    if (addablePackTerms.length > 0) {
+      handleBulkAddToPool();
+    }
+    router.push("/dungeon");
   };
 
   const totalAttrCount = result
@@ -246,9 +282,16 @@ export default function SummonHallPage() {
       {/* Text Input Area */}
       <section className="border border-[#2E2822] bg-[#121016] p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <span className="font-mono text-xs font-bold text-[#A89262]">
-            サンプル文で試す
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs font-bold text-[#A89262]">
+              サンプル文で試す
+            </span>
+            {hydrated && save.totalSummons === 0 && (
+              <span className="border border-[#5A4722] bg-[#1E170A] px-2 py-0.5 font-mono text-[10px] font-bold text-[#E3B94E]">
+                初回用サンプル入力済（そのまま採掘OK）
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {MINING_SAMPLE_TEXTS.map((s) => {
               const isSelected = text === s.text;
@@ -256,7 +299,7 @@ export default function SummonHallPage() {
                 <button
                   key={s.label}
                   type="button"
-                  onClick={() => setText(isSelected ? "" : s.text)}
+                  onClick={() => setTextDraft(isSelected ? "" : s.text)}
                   className={`border px-3 py-1.5 text-xs transition-colors ${
                     isSelected
                       ? "border-[#D4AF37] bg-[#261E0E] font-bold text-[#E3B94E]"
@@ -272,7 +315,7 @@ export default function SummonHallPage() {
 
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setTextDraft(e.target.value)}
           maxLength={2500}
           rows={5}
           placeholder="ここにあなたの文章を貼り付け、または入力してください（最大2,500文字）..."
@@ -287,7 +330,7 @@ export default function SummonHallPage() {
             {text.length > 0 && (
               <button
                 type="button"
-                onClick={() => setText("")}
+                onClick={() => setTextDraft("")}
                 className="inline-flex items-center gap-1 border border-[#3A332A] bg-[#18151E] px-2 py-0.5 text-[11px] text-[#CFC8B8] hover:border-[#C93A2B] hover:text-[#E05A47]"
               >
                 <X className="h-3 w-3" />
@@ -363,12 +406,24 @@ export default function SummonHallPage() {
                   （抽出総数 {result.totalExtractedWords}語中 ピックアップ {result.packCards.length}枚）
                 </span>
               </div>
-              <Link
-                href="/deck"
-                className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
-              >
-                マイ辞書を確認 ({save.deckPoolTerms.length}/30) →
-              </Link>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {addablePackTerms.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBulkAddToPool}
+                    className="inline-flex items-center gap-1 border border-[#2F7D5B] bg-[#11221B] px-2.5 py-1 font-mono text-xs font-bold text-[#6EE7B7] transition-colors hover:bg-[#193529]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>未登録をまとめて辞書へ (+{addablePackTerms.length}枚)</span>
+                  </button>
+                )}
+                <Link
+                  href="/deck"
+                  className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
+                >
+                  マイ辞書を確認 ({save.deckPoolTerms.length}/30) →
+                </Link>
+              </div>
             </div>
 
             {duplicateNotice && (
@@ -548,13 +603,24 @@ export default function SummonHallPage() {
                 <span>マイ辞書・エースを編成 ({save.deckPoolTerms.length}/30)</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-              <Link
-                href="/dungeon"
-                className="flex items-center justify-center gap-2 border border-[#C93A2B] bg-[#291112] py-2.5 font-serif text-xs font-extrabold text-[#F7F3EA] transition-colors hover:bg-[#C93A2B]"
-              >
-                <span>この辞書で迷宮へ挑む</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {addablePackTerms.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleAddAllAndGoDungeon}
+                  className="flex items-center justify-center gap-2 border border-[#C93A2B] bg-[#291112] py-2.5 font-serif text-xs font-extrabold text-[#F7F3EA] transition-colors hover:bg-[#C93A2B]"
+                >
+                  <span>今回の{addablePackTerms.length}枚を辞書に入れて迷宮へ挑む</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <Link
+                  href="/dungeon"
+                  className="flex items-center justify-center gap-2 border border-[#C93A2B] bg-[#291112] py-2.5 font-serif text-xs font-extrabold text-[#F7F3EA] transition-colors hover:bg-[#C93A2B]"
+                >
+                  <span>この辞書で迷宮へ挑む</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           </motion.section>
           )

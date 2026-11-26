@@ -784,6 +784,105 @@ export function getEffectiveCardCost(state: RunState, card: BattleCard): number 
   return Math.max(0, effective);
 }
 
+export interface CommandOutputPreview {
+  attackDamage: number;
+  attackRetriggers: number;
+  attackLethal: boolean;
+  guardShield: number;
+  guardRetriggers: number;
+  skillDamage: number;
+  skillShield: number;
+  skillRetriggers: number;
+}
+
+function cloneStateForPreview(state: RunState, minEnergy: number): RunState {
+  return {
+    ...state,
+    energy: Math.max(state.energy, minEnergy),
+    enemy: { ...state.enemy },
+    relicIds: [...state.relicIds],
+    deck: [...state.deck],
+    drawPile: [...state.drawPile],
+    hand: [...state.hand],
+    discardPile: [...state.discardPile],
+    playedThisTurn: [...state.playedThisTurn],
+    attrsPlayedThisTurn: [...state.attrsPlayedThisTurn],
+    posPlayedThisTurn: [...state.posPlayedThisTurn],
+    attrsPlayedThisBattle: [...state.attrsPlayedThisBattle],
+    mummifiedZeroIds: [...state.mummifiedZeroIds],
+    cardCostOverrides: { ...state.cardCostOverrides },
+    logs: [],
+  };
+}
+
+/**
+ * Dry-runs playCardFromHand for Attack / Skill / Guard on an isolated snapshot
+ * so the UI can show exact expected damage/shield numbers (including all active
+ * battle/next-card multipliers, retriggers, enemy gimmicks, and relics).
+ */
+export function getCommandOutputPreview(
+  state: RunState,
+  card: BattleCard
+): CommandOutputPreview {
+  if (state.phase !== "battle") {
+    return {
+      attackDamage: 0,
+      attackRetriggers: 1,
+      attackLethal: false,
+      guardShield: 0,
+      guardRetriggers: 1,
+      skillDamage: 0,
+      skillShield: 0,
+      skillRetriggers: 1,
+    };
+  }
+
+  const cost = getEffectiveCardCost(state, card);
+  const hasOverclock = state.relicIds.includes("overclock");
+  const minEnergy = state.energy >= cost || hasOverclock ? state.energy : cost;
+
+  const atkRes = playCardFromHand(
+    cloneStateForPreview(state, minEnergy),
+    card.instanceId,
+    "attack"
+  );
+  const attackDamage = atkRes.lastOutput?.didDamage ? atkRes.lastOutput.finalOutput : 0;
+  const attackRetriggers = atkRes.lastOutput?.retriggers ?? 1;
+  const attackLethal = attackDamage > 0 && atkRes.enemyHp <= 0;
+
+  let guardShield = 0;
+  let guardRetriggers = 1;
+  if (!state.relicIds.includes("black_pact_solo")) {
+    const guardRes = playCardFromHand(
+      cloneStateForPreview(state, minEnergy),
+      card.instanceId,
+      "guard"
+    );
+    guardShield = guardRes.lastOutput?.didShield ? guardRes.lastOutput.finalOutput : 0;
+    guardRetriggers = guardRes.lastOutput?.retriggers ?? 1;
+  }
+
+  const skillRes = playCardFromHand(
+    cloneStateForPreview(state, minEnergy),
+    card.instanceId,
+    "skill"
+  );
+  const skillDamage = skillRes.lastOutput?.didDamage ? skillRes.lastOutput.finalOutput : 0;
+  const skillShield = skillRes.lastOutput?.didShield ? skillRes.lastOutput.finalOutput : 0;
+  const skillRetriggers = skillRes.lastOutput?.retriggers ?? 1;
+
+  return {
+    attackDamage,
+    attackRetriggers,
+    attackLethal,
+    guardShield,
+    guardRetriggers,
+    skillDamage,
+    skillShield,
+    skillRetriggers,
+  };
+}
+
 /**
  * Returns a human-readable live preview of what a conditional/scaling skill
  * will produce right now if activated from hand.

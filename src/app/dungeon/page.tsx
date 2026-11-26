@@ -55,6 +55,7 @@ import {
   chooseCardReward,
   chooseRelicReward,
   endPlayerTurn,
+  getCommandOutputPreview,
   getDynamicSkillPreview,
   getEffectiveCardCost,
   getEnemyCurrentIntent,
@@ -1869,75 +1870,143 @@ export default function DungeonPage() {
               </div>
 
               {/* 3 Command Buttons */}
-              <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
-                {(
-                  [
-                    {
-                      role: "attack" as CommandRole,
-                      label: "こうげき",
-                      icon: Sword,
-                      accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
-                    },
-                    {
-                      role: "skill" as CommandRole,
-                      label: "スキル",
-                      icon: Sparkles,
-                      accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
-                    },
-                    {
-                      role: "guard" as CommandRole,
-                      label: "ぼうぎょ",
-                      icon: Shield,
-                      accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
-                    },
-                  ] as const
-                ).map((cmd) => {
-                  const Icon = cmd.icon;
-                  const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
-                  const guardLocked =
-                    cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
-                  const affordable =
-                    !pendingVictoryRun &&
-                    !guardLocked &&
-                    !isChokerCapped &&
-                    Boolean(selectedCard) &&
-                    (run.energy >= cost || hasOverclock);
-                  const bonusTag =
-                    selectedCard && cmd.role === "attack"
-                      ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
-                        ? "×1.25"
-                        : selectedCard.attribute === "logic" &&
-                            (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
-                          ? "貫通"
-                          : null
-                      : selectedCard &&
-                          cmd.role === "guard" &&
-                          (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
-                        ? "×1.25"
-                        : null;
-                  return (
-                    <button
-                      key={cmd.role}
-                      type="button"
-                      disabled={!affordable}
-                      onClick={() => handlePlayCommand(cmd.role)}
-                      className={`flex items-center justify-center gap-1 border py-2 font-serif text-xs font-extrabold tracking-wider transition-colors lg:gap-1.5 lg:py-2.5 lg:text-sm ${
-                        affordable
-                          ? cmd.accent
-                          : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
-                      {bonusTag && affordable && (
-                        <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[9px] lg:text-[10px]">
-                          {bonusTag}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const commandPreview =
+                  selectedCard && run.phase === "battle" && !pendingVictoryRun && !isChokerCapped
+                    ? getCommandOutputPreview(run, selectedCard)
+                    : null;
+                return (
+                  <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
+                    {(
+                      [
+                        {
+                          role: "attack" as CommandRole,
+                          label: "こうげき",
+                          icon: Sword,
+                          accent: "border-[#B8332A] bg-[#261314] text-[#F2ECE0] hover:bg-[#C93A2B]",
+                        },
+                        {
+                          role: "skill" as CommandRole,
+                          label: "スキル",
+                          icon: Sparkles,
+                          accent: "border-[#B0872D] bg-[#261E0E] text-[#E3B94E] hover:bg-[#3A2D12]",
+                        },
+                        {
+                          role: "guard" as CommandRole,
+                          label: "ぼうぎょ",
+                          icon: Shield,
+                          accent: "border-[#2E5C8A] bg-[#131D28] text-[#69A3D9] hover:bg-[#1E3145]",
+                        },
+                      ] as const
+                    ).map((cmd) => {
+                      const Icon = cmd.icon;
+                      const cost = selectedCard ? getEffectiveCardCost(run, selectedCard) : 0;
+                      const guardLocked =
+                        cmd.role === "guard" && run.relicIds.includes("black_pact_solo");
+                      const affordable =
+                        !pendingVictoryRun &&
+                        !guardLocked &&
+                        !isChokerCapped &&
+                        Boolean(selectedCard) &&
+                        (run.energy >= cost || hasOverclock);
+                      const bonusTag =
+                        selectedCard && cmd.role === "attack"
+                          ? selectedCard.attribute === "emotion" || selectedCard.attribute === "sense"
+                            ? "×1.25"
+                            : selectedCard.attribute === "logic" &&
+                                (selectedCard.rank === "SSR" || selectedCard.rank === "UR")
+                              ? "貫通"
+                              : null
+                          : selectedCard &&
+                              cmd.role === "guard" &&
+                              (selectedCard.attribute === "logic" || selectedCard.attribute === "matter")
+                            ? "×1.25"
+                            : null;
+
+                      let previewText: string | null = null;
+                      let isLethalPreview = false;
+                      if (commandPreview && selectedCard) {
+                        if (cmd.role === "attack") {
+                          const multi =
+                            commandPreview.attackRetriggers > 1
+                              ? `${commandPreview.attackRetriggers}連 `
+                              : "";
+                          previewText = `${multi}約${formatJapaneseNumber(commandPreview.attackDamage).text}`;
+                          isLethalPreview = commandPreview.attackLethal;
+                        } else if (cmd.role === "guard") {
+                          if (guardLocked) {
+                            previewText = "封印中";
+                          } else {
+                            const multi =
+                              commandPreview.guardRetriggers > 1
+                                ? `${commandPreview.guardRetriggers}連 `
+                                : "";
+                            previewText = `${multi}盾 +${formatJapaneseNumber(commandPreview.guardShield).text}`;
+                          }
+                        } else if (commandPreview.skillDamage > 0) {
+                          const multi =
+                            commandPreview.skillRetriggers > 1
+                              ? `${commandPreview.skillRetriggers}連 `
+                              : "";
+                          previewText = `${multi}攻約${formatJapaneseNumber(commandPreview.skillDamage).text}`;
+                        } else if (commandPreview.skillShield > 0) {
+                          const multi =
+                            commandPreview.skillRetriggers > 1
+                              ? `${commandPreview.skillRetriggers}連 `
+                              : "";
+                          previewText = `${multi}盾 +${formatJapaneseNumber(commandPreview.skillShield).text}`;
+                        } else {
+                          previewText = SKILL_META[selectedCard.skillType].shortTag;
+                        }
+                      }
+
+                      return (
+                        <button
+                          key={cmd.role}
+                          type="button"
+                          disabled={!affordable}
+                          onClick={() => handlePlayCommand(cmd.role)}
+                          className={`flex flex-col items-center justify-center gap-0.5 border py-1.5 font-serif transition-colors lg:py-2 ${
+                            affordable
+                              ? cmd.accent
+                              : "cursor-not-allowed border-[#2A241E] bg-[#121016] text-[#5C564C]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-1 text-xs font-extrabold tracking-wider lg:gap-1.5 lg:text-sm">
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span>{guardLocked ? `${cmd.label} (封)` : cmd.label}</span>
+                            {bonusTag && affordable && (
+                              <span className="border border-current/40 bg-[#0B0A0E]/60 px-1 py-0.5 font-mono text-[9px] lg:text-[10px]">
+                                {bonusTag}
+                              </span>
+                            )}
+                          </div>
+                          {previewText && (
+                            <div className="flex items-center gap-1 font-mono text-[10px] leading-none lg:text-[11px]">
+                              <span
+                                className={
+                                  affordable
+                                    ? isLethalPreview
+                                      ? "font-extrabold text-[#F5D76E]"
+                                      : "font-bold opacity-90"
+                                    : "text-[#6E675C]"
+                                }
+                              >
+                                {previewText}
+                              </span>
+                              {isLethalPreview && affordable && (
+                                <span className="border border-[#E3B94E]/60 bg-[#2E1E0A] px-1 py-0.2 text-[9px] font-extrabold text-[#F5D76E]">
+                                  撃破
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Mobile Hand Cards: Fits 1–5 cards cleanly without horizontal clipping; 6+ cards scroll smoothly */}
               {(() => {
