@@ -147,7 +147,7 @@ export default function DeckPage() {
       </section>
 
       {/* Ace (PC left sidebar) + Current Pool Summary */}
-      <div className="grid gap-3 md:grid-cols-[220px_1fr] md:gap-4">
+      <div className="grid gap-3 md:grid-cols-[13.75rem_1fr] md:gap-4">
         <div className="hidden border border-[#D4AF37] bg-[#19150E] p-3 md:block">
           <div className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold text-[#F4D06F]">
             <Crown className="h-4 w-4" />
