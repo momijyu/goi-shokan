@@ -102,7 +102,7 @@ function drawShareCardFrame(ctx: CanvasRenderingContext2D, width: number, height
   // Header branding
   ctx.fillStyle = "#A89262";
   ctx.font = "bold 18px monospace";
-  ctx.fillText("GOI-SHOKAN(KARI) // 語彙召喚(仮)", 56, 74);
+  ctx.fillText("GOI-SHOKAN(KARI) // 語彙召喚(仮)", 56, 70);
 }
 
 export function downloadMiningShareImage(
@@ -121,23 +121,23 @@ export function downloadMiningShareImage(
   drawShareCardFrame(ctx, width, height);
 
   ctx.fillStyle = "#F7F3EA";
-  ctx.font = "bold 36px serif";
-  ctx.fillText("言霊採掘リザルト", 56, 126);
+  ctx.font = "bold 34px serif";
+  ctx.fillText("言霊採掘リザルト", 56, 116);
 
   ctx.fillStyle = "#CFC8B8";
-  ctx.font = "22px monospace";
-  ctx.fillText(`抽出語彙 ${totalExtractedWords}語 / ピックアップ ${pack.length}枚`, 56, 164);
+  ctx.font = "20px monospace";
+  ctx.fillText(`抽出語彙 ${totalExtractedWords}語 / ピックアップ ${pack.length}枚`, 56, 148);
 
   const cards = [...pack]
     .sort((a, b) => RANK_ORDER[b.entry.rank] - RANK_ORDER[a.entry.rank])
     .slice(0, 6);
 
   const cardW = 344;
-  const cardH = 178;
+  const cardH = 166;
   const startX = 56;
-  const startY = 194;
+  const startY = 172;
   const gapX = 28;
-  const gapY = 22;
+  const gapY = 18;
 
   cards.forEach((item, idx) => {
     const col = idx % 3;
@@ -162,34 +162,34 @@ export function downloadMiningShareImage(
     ctx.strokeRect(x + 14, y + 14, 38, 38);
     ctx.fillStyle = rankMeta.color;
     ctx.font = "bold 22px serif";
-    ctx.fillText(rankMeta.kanji, x + 22, y + 41);
+    ctx.fillText(rankMeta.kanji, x + 22, y + 40);
 
     // Term & attribute
     ctx.fillStyle = "#F7F3EA";
     ctx.font = "bold 24px serif";
     const term = item.entry.term.length > 9 ? `${item.entry.term.slice(0, 8)}…` : item.entry.term;
-    ctx.fillText(term, x + 64, y + 41);
+    ctx.fillText(term, x + 64, y + 40);
 
     ctx.fillStyle = attrMeta.color;
     ctx.font = "bold 16px monospace";
-    ctx.fillText(`${attrMeta.label} / コスト${item.entry.cost}`, x + 16, y + 82);
+    ctx.fillText(`${attrMeta.label} / コスト${item.entry.cost}`, x + 16, y + 80);
 
     // ATK / DEF
     ctx.fillStyle = "#F07167";
     ctx.font = "bold 18px monospace";
-    ctx.fillText(`攻 ${item.entry.baseAtk}`, x + 16, y + 116);
+    ctx.fillText(`攻 ${item.entry.baseAtk}`, x + 16, y + 114);
     ctx.fillStyle = "#69A3D9";
-    ctx.fillText(`防 ${item.entry.baseDef}`, x + 116, y + 116);
+    ctx.fillText(`防 ${item.entry.baseDef}`, x + 116, y + 114);
 
     // Skill short tag
     ctx.fillStyle = skillMeta.color;
     ctx.font = "bold 15px sans-serif";
-    ctx.fillText(`[${skillMeta.shortTag}]`, x + 16, y + 150);
+    ctx.fillText(`[${skillMeta.shortTag}]`, x + 16, y + 146);
   });
 
   ctx.fillStyle = "#8A7348";
   ctx.font = "18px monospace";
-  ctx.fillText("自分の文章で戦う日本語語彙デッキ構築ローグライク #語彙召喚", 56, 584);
+  ctx.fillText("自分の文章で戦う日本語語彙デッキ構築ローグライク #語彙召喚", 56, 568);
 
   triggerCanvasPngDownload(canvas, `goi-shokan-pack-${Date.now()}.png`);
 }
@@ -214,42 +214,44 @@ export function downloadRunShareImage(params: {
   drawShareCardFrame(ctx, width, height);
 
   ctx.fillStyle = params.cleared ? "#F4D06F" : "#E05A47";
-  ctx.font = "bold 24px monospace";
+  ctx.font = "bold 22px monospace";
   ctx.fillText(
     params.cleared ? "STAGE CONQUERED // 迷宮踏破" : "EXPEDITION RECORD // 迷宮挑戦記録",
     56,
-    126
+    116
   );
 
   ctx.fillStyle = "#F7F3EA";
-  ctx.font = "bold 46px serif";
-  ctx.fillText(params.stageName, 56, 186);
+  ctx.font = "bold 44px serif";
+  ctx.fillText(params.stageName, 56, 172);
 
   // Main Damage Box
   ctx.fillStyle = "#16131C";
-  ctx.fillRect(56, 224, 1088, 196);
+  ctx.fillRect(56, 204, 1088, 188);
   ctx.strokeStyle = "#D4AF37";
   ctx.lineWidth = 2.5;
-  ctx.strokeRect(56, 224, 1088, 196);
+  ctx.strokeRect(56, 204, 1088, 188);
 
   ctx.fillStyle = "#A89262";
   ctx.font = "bold 22px monospace";
-  ctx.fillText("MAX SINGLE HIT // 自己最高一撃出力", 88, 272);
+  ctx.fillText("MAX SINGLE HIT // 自己最高一撃出力", 88, 250);
 
   const dmgText = formatJapaneseNumber(params.maxDamage).text;
   ctx.fillStyle = "#F4D06F";
   ctx.font = "bold 76px monospace";
-  ctx.fillText(dmgText, 88, 366);
+  ctx.fillText(dmgText, 88, 344);
 
   // Sub stats
+  const aceDisplay =
+    params.aceTerm.length > 9 ? `${params.aceTerm.slice(0, 8)}…` : params.aceTerm;
   const boxes = [
     { label: "到達階層", val: `第${params.floor}階` },
     { label: "獲得遺物", val: `${params.relicCount}個` },
-    { label: "相棒エース", val: params.aceTerm },
+    { label: "相棒エース", val: aceDisplay },
   ];
   boxes.forEach((b, i) => {
     const bx = 56 + i * 372;
-    const by = 446;
+    const by = 416;
     ctx.fillStyle = "#121016";
     ctx.fillRect(bx, by, 344, 100);
     ctx.strokeStyle = "#3A332A";
@@ -267,7 +269,7 @@ export function downloadRunShareImage(params: {
 
   ctx.fillStyle = "#8A7348";
   ctx.font = "18px monospace";
-  ctx.fillText("文章からデッキを組む日本語語彙ローグライク「語彙召喚(仮)」 #語彙召喚", 56, 586);
+  ctx.fillText("文章からデッキを組む日本語語彙ローグライク「語彙召喚(仮)」 #語彙召喚", 56, 568);
 
   triggerCanvasPngDownload(canvas, `goi-shokan-result-${Date.now()}.png`);
 }
