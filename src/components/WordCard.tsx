@@ -99,8 +99,8 @@ export function WordCard({
           : compact
             ? className
               ? "p-1.5 sm:p-2.5"
-              : "h-[118px] p-1.5 sm:h-[140px] sm:p-2.5"
-            : "h-[234px] p-2.5 sm:h-[244px] sm:p-3"
+              : "h-[7.375rem] p-1.5 sm:h-[8.75rem] sm:p-2.5"
+            : "h-[14.625rem] p-2.5 sm:h-[15.25rem] sm:p-3"
       } ${
         dimUnselected && !inDeck && !isAce ? "opacity-65 hover:opacity-100" : ""
       } ${

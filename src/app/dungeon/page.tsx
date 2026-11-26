@@ -1107,7 +1107,7 @@ export default function DungeonPage() {
 
   return (
     <div
-      className={`grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,512px)_260px] lg:justify-center ${
+      className={`grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,32rem)_16.25rem] lg:justify-center ${
         run.phase === "battle" ? "max-lg:h-full" : ""
       }`}
     >
@@ -1165,7 +1165,7 @@ export default function DungeonPage() {
               まだ遺物を所持していません。敵を倒して獲得しよう。
             </p>
           ) : (
-            <div className="grid max-h-[340px] grid-cols-1 gap-1.5 overflow-y-auto pr-1">
+            <div className="grid max-h-[21.25rem] grid-cols-1 gap-1.5 overflow-y-auto pr-1">
               {groupedRelics.map(({ relic: r, count }) => (
                 <Tooltip key={r.id}>
                   <TooltipTrigger
@@ -2050,7 +2050,7 @@ export default function DungeonPage() {
                           isTemporaryTrial={c.isTemporaryTrial}
                           compact
                           disableLift
-                          className="w-[98px] min-h-[112px]"
+                          className="w-[6.125rem] min-h-[7rem]"
                           onClick={() =>
                             setSelectedRewardCardId((prev) =>
                               prev === c.instanceId ? null : c.instanceId
@@ -2443,7 +2443,7 @@ export default function DungeonPage() {
                             compact
                             mini
                             disableLift
-                            className="w-[80px] min-h-[102px]"
+                            className="w-[5rem] min-h-[6.375rem]"
                             onClick={() =>
                               setSelectedLibraryCardId((prev) =>
                                 prev === c.instanceId ? null : c.instanceId
@@ -2554,7 +2554,7 @@ export default function DungeonPage() {
                     デッキ {run.deck.length}枚
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 max-h-[480px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2.5 max-h-[30rem] overflow-y-auto pr-1">
                   {run.deck.map((c) => {
                     const rankMeta = RANK_META[c.rank];
                     const attrMeta = ATTR_META[c.attribute];
