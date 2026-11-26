@@ -7,11 +7,13 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  Download,
   Info,
   Loader2,
   Pencil,
   Pickaxe,
   Plus,
+  Share2,
   Sparkles,
   UserCheck,
   X,
@@ -20,6 +22,7 @@ import { useSaveData } from "@/components/GameShell";
 import {
   ExcavationBannerBurst,
   MiningCardRevealFrame,
+  SummonPortalFlash,
 } from "@/components/MiningRevealEffects";
 import { WordCard } from "@/components/WordCard";
 import { WordDetailDialog } from "@/components/WordDetailDialog";
@@ -29,6 +32,15 @@ import {
   type AnalyzeSummary,
   type MinedCardResult,
 } from "@/lib/analyzer";
+import {
+  buildMiningShareText,
+  downloadMiningShareImage,
+  openXShareIntent,
+} from "@/lib/shareUtils";
+import {
+  playMiningRevealSound,
+  playMiningStartSound,
+} from "@/lib/soundFx";
 import { applyMiningPackToSave, updateDeckPoolInSave } from "@/lib/storage";
 import {
   ATTR_META,
@@ -68,6 +80,7 @@ export default function SummonHallPage() {
     setLoading(true);
     setErrorMsg(null);
     setDuplicateNotice(false);
+    playMiningStartSound();
     try {
       const summary = await analyzeTextForPack(text);
       if (summary.packCards.length === 0) {
@@ -83,6 +96,14 @@ export default function SummonHallPage() {
         setDuplicateNotice(applied.isDuplicateText);
         setRevealSeq((n) => n + 1);
         setResult(summary);
+        const topRank = summary.packCards.some((c) => c.entry.rank === "UR")
+          ? "UR"
+          : summary.packCards.some((c) => c.entry.rank === "SSR")
+            ? "SSR"
+            : summary.packCards.every((c) => c.entry.rank === "F")
+              ? "F"
+              : "SR";
+        playMiningRevealSound(topRank);
       }
     } catch {
       setErrorMsg("形態素辞書の読み込みに失敗しました。再試行してください。");
@@ -302,8 +323,13 @@ export default function SummonHallPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="kaku-frame scroll-mt-16 p-4 sm:p-5"
+            className="kaku-frame relative scroll-mt-16 overflow-hidden p-4 sm:p-5"
           >
+            <SummonPortalFlash
+              revealSeq={revealSeq}
+              hasUR={result.packCards.some((c) => c.entry.rank === "UR")}
+              hasSSR={result.packCards.some((c) => c.entry.rank === "SSR")}
+            />
             <ExcavationBannerBurst
               revealSeq={revealSeq}
               newCount={duplicateNotice ? 0 : newTerms.length}
@@ -313,7 +339,7 @@ export default function SummonHallPage() {
               isDuplicate={duplicateNotice}
             />
 
-            <div className="mb-4 flex flex-col justify-between gap-2 border-b border-[#2E2822] pb-3 sm:flex-row sm:items-center">
+            <div className="mb-4 flex flex-col justify-between gap-2.5 border-b border-[#2E2822] pb-3 sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#E3B94E]" />
                 <h2 className="font-serif text-lg font-extrabold text-[#F7F3EA]">
@@ -323,12 +349,42 @@ export default function SummonHallPage() {
                   （抽出総数 {result.totalExtractedWords}語中 ピックアップ {result.packCards.length}枚）
                 </span>
               </div>
-              <Link
-                href="/deck"
-                className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
-              >
-                マイ辞書を整理する ({save.deckPoolTerms.length}/30) →
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openXShareIntent(
+                      buildMiningShareText(
+                        result.packCards,
+                        result.totalExtractedWords
+                      )
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-2.5 py-1 font-mono text-[11px] font-bold text-[#F4D06F] transition-colors hover:border-[#D4AF37] hover:bg-[#352A14]"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span>結果をXでポスト</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadMiningShareImage(
+                      result.packCards,
+                      result.totalExtractedWords
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-2.5 py-1 font-mono text-[11px] font-bold text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>画像保存</span>
+                </button>
+                <Link
+                  href="/deck"
+                  className="font-mono text-xs font-bold text-[#E3B94E] underline-offset-4 hover:underline"
+                >
+                  マイ辞書を整理する ({save.deckPoolTerms.length}/30) →
+                </Link>
+              </div>
             </div>
 
             {duplicateNotice && (

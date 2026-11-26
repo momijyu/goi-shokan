@@ -19,6 +19,8 @@ import {
   Pickaxe,
   Trophy,
   UserCheck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import {
@@ -29,6 +31,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatJapaneseNumber } from "@/lib/bignum";
+import {
+  isSoundMuted,
+  subscribeSoundMute,
+  toggleSoundMuted,
+} from "@/lib/soundFx";
 import {
   createInitialSaveData,
   loadSaveData,
@@ -118,6 +125,11 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   const hydrated = useSyncExternalStore(
     emptySubscribe,
     () => true,
+    () => false
+  );
+  const soundMuted = useSyncExternalStore(
+    subscribeSoundMute,
+    isSoundMuted,
     () => false
   );
   const [guestNameInput, setGuestNameInput] = useState("");
@@ -266,6 +278,20 @@ export function GameShell({ children }: { children: React.ReactNode }) {
                   <strong className={bestFmt.colorClass}>{bestFmt.text}</strong>
                 </span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => toggleSoundMuted()}
+                aria-label={soundMuted ? "効果音をオンにする" : "効果音をミュートする"}
+                title={soundMuted ? "効果音 OFF" : "効果音 ON"}
+                className="flex items-center justify-center border border-[#3A332A] bg-[#141218] p-1.5 text-xs text-[#CFC8B8] transition-colors hover:border-[#8A7348] hover:text-[#E3B94E]"
+              >
+                {hydrated && soundMuted ? (
+                  <VolumeX className="h-3.5 w-3.5 text-[#8E8678]" />
+                ) : (
+                  <Volume2 className="h-3.5 w-3.5 text-[#E3B94E]" />
+                )}
+              </button>
 
               <button
                 type="button"

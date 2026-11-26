@@ -15,6 +15,39 @@ interface ExcavationBannerBurstProps {
 }
 
 /**
+ * Full-panel summon burst overlay triggered right when a pack is excavated.
+ */
+export function SummonPortalFlash({
+  revealSeq,
+  hasUR,
+  hasSSR,
+}: {
+  revealSeq: number;
+  hasUR: boolean;
+  hasSSR: boolean;
+}) {
+  const accent = hasUR
+    ? "rgba(224, 90, 71, 0.36)"
+    : hasSSR
+      ? "rgba(244, 208, 111, 0.32)"
+      : "rgba(212, 175, 55, 0.2)";
+
+  return (
+    <motion.div
+      key={`portal_flash_${revealSeq}`}
+      aria-hidden="true"
+      initial={{ opacity: 0.95, scale: 0.88 }}
+      animate={{ opacity: 0, scale: 1.12 }}
+      transition={{ duration: hasUR ? 0.72 : 0.52, ease: "easeOut" }}
+      style={{
+        background: `radial-gradient(circle at 50% 35%, ${accent} 0%, transparent 68%)`,
+      }}
+      className="pointer-events-none absolute inset-0 z-20"
+    />
+  );
+}
+
+/**
  * Displays a crisp celebratory highlight strip & scan flash when a pack is excavated.
  */
 export function ExcavationBannerBurst({
@@ -120,10 +153,16 @@ export function MiningCardRevealFrame({
   const hasShine = isUR || isSSR || isNew || isUpgraded;
 
   const ringColor = isUR
-    ? "border-[#E05A47] bg-[#E05A47]/20"
+    ? "border-[#E05A47] bg-[#E05A47]/25 shadow-[0_0_26px_rgba(224,90,71,0.55)]"
     : isSSR
-      ? "border-[#F4D06F] bg-[#F4D06F]/18"
+      ? "border-[#F4D06F] bg-[#F4D06F]/22 shadow-[0_0_22px_rgba(244,208,111,0.45)]"
       : "border-[#6EE7B7] bg-[#6EE7B7]/14";
+
+  const frameGlowClass = isUR
+    ? "shadow-[0_0_18px_rgba(224,90,71,0.28)]"
+    : isSSR
+      ? "shadow-[0_0_16px_rgba(244,208,111,0.24)]"
+      : "";
 
   return (
     <motion.div
@@ -132,15 +171,15 @@ export function MiningCardRevealFrame({
       whileInView={
         isF
           ? { opacity: 1, scale: 1, y: 0, rotateY: 0, x: [0, -3, 3, -2, 0] }
-          : { opacity: 1, scale: [0.78, 1.05, 1], y: 0, rotateY: 0 }
+          : { opacity: 1, scale: [0.78, 1.08, 1], y: 0, rotateY: 0 }
       }
       viewport={{ once: true, amount: 0.08 }}
       transition={{
         delay,
-        duration: isUR ? 0.42 : 0.3,
+        duration: isUR ? 0.44 : 0.3,
         ease: "easeOut",
       }}
-      className="relative flex flex-col gap-1.5"
+      className={`relative flex flex-col gap-1.5 ${frameGlowClass}`}
     >
       {/* Summon Shockwave Ring for High Rank / New Discoveries */}
       {(isUR || isSSR || isNew) && (

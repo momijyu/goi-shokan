@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { PixelMonster } from "@/components/PixelMonster";
-import { ATTR_META, type Attribute } from "@/types/game";
+import { ATTR_META, type Attribute, type Rank } from "@/types/game";
 
 export interface CombatVisualEffect {
   id: number;
@@ -18,6 +18,8 @@ export interface CombatVisualEffect {
     | "enemy_guard";
   amountText: string;
   subLabel?: string;
+  cardTerm?: string;
+  cardRank?: Rank;
   colorClass: string;
   shakeLevel: 0 | 1 | 2 | 3;
   retriggers: number;
@@ -149,12 +151,20 @@ export function AnimatedEnemySprite({
           >
             {/* Expanding Shockwave Ring */}
             <motion.div
-              initial={{ scale: 0.35, opacity: 0.9 }}
-              animate={{ scale: effect.isLethal ? 1.55 : 1.25, opacity: 0 }}
-              transition={{ duration: 0.38, ease: "easeOut" }}
+              initial={{ scale: 0.35, opacity: 0.95 }}
+              animate={{ scale: effect.isLethal ? 1.75 : 1.25 + effect.shakeLevel * 0.14, opacity: 0 }}
+              transition={{ duration: 0.42, ease: "easeOut" }}
               style={{ borderColor: hitAttrColor }}
-              className="absolute inset-[10%] rounded-full border-2"
+              className="absolute inset-[8%] rounded-full border-2"
             />
+            {(effect.shakeLevel >= 2 || effect.isLethal) && (
+              <motion.div
+                initial={{ scale: 0.25, opacity: 0.9 }}
+                animate={{ scale: 2.05, opacity: 0 }}
+                transition={{ duration: 0.52, delay: 0.06, ease: "easeOut" }}
+                className="absolute inset-[12%] rounded-full border-2 border-[#F4D06F]"
+              />
+            )}
 
             {/* Crisp SVG Blade Slashes */}
             <svg
@@ -241,19 +251,43 @@ export function AnimatedEnemySprite({
         )}
       </AnimatePresence>
 
+      {/* Word Cut-in Slash Ribbon for impactful card hits */}
+      <AnimatePresence>
+        {isEnemyHit &&
+          effect?.cardTerm &&
+          (effect.shakeLevel >= 1 ||
+            effect.isLethal ||
+            effect.cardRank === "SSR" ||
+            effect.cardRank === "UR") && (
+            <motion.div
+              key={`cutin_${effect.id}`}
+              initial={{ opacity: 0, x: -32, scale: 0.9 }}
+              animate={{ opacity: [0, 1, 1, 0], x: [-32, 0, 4, 24], scale: [0.9, 1.05, 1, 1] }}
+              transition={{ duration: 0.56, ease: "easeOut" }}
+              style={{ borderColor: hitAttrColor }}
+              className="pointer-events-none absolute -bottom-2 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap border-y bg-[#0B0A0E]/92 px-3 py-0.5 font-serif text-[11px] font-extrabold tracking-widest text-[#F7F3EA] shadow-[0_0_12px_rgba(212,175,55,0.45)]"
+            >
+              『{effect.cardTerm}』
+            </motion.div>
+          )}
+      </AnimatePresence>
+
       {/* Floating Damage / Finisher Popup */}
       <AnimatePresence>
         {(isEnemyHit || isEnemyGuard) && effect && (
           <motion.div
             key={`dmgpop_${effect.id}`}
-            initial={{ opacity: 0, y: 8, scale: 0.65 }}
+            initial={{ opacity: 0, y: 8, scale: 0.6 }}
             animate={{
               opacity: [0, 1, 1, 0],
-              y: compact ? [4, -14, -22] : [-4, -30, -44],
-              scale: [0.65, 1.18, 1],
+              y: compact ? [4, -14, -22] : [-4, -30, -46],
+              scale:
+                effect.shakeLevel >= 2 || effect.isLethal
+                  ? [0.6, 1.32, 1.08]
+                  : [0.65, 1.18, 1],
             }}
             transition={{
-              duration: effect.isLethal ? 0.72 : 0.65,
+              duration: effect.isLethal || effect.shakeLevel >= 2 ? 0.82 : 0.65,
               ease: "easeOut",
             }}
             className={`pointer-events-none absolute z-20 flex flex-col whitespace-nowrap ${
@@ -275,10 +309,22 @@ export function AnimatedEnemySprite({
             <span
               style={{
                 textShadow:
-                  "0 2px 0 #0B0A0E, 1px 0 0 #0B0A0E, -1px 0 0 #0B0A0E, 0 -1px 0 #0B0A0E",
+                  effect.shakeLevel >= 2 || effect.isLethal
+                    ? "0 3px 0 #0B0A0E, 0 0 18px rgba(244,208,111,0.75), 1px 0 0 #0B0A0E, -1px 0 0 #0B0A0E"
+                    : "0 2px 0 #0B0A0E, 1px 0 0 #0B0A0E, -1px 0 0 #0B0A0E, 0 -1px 0 #0B0A0E",
               }}
               className={`font-pixel font-bold tracking-wider ${
-                compact ? "text-lg" : "text-2xl"
+                effect.shakeLevel >= 2 || effect.isLethal
+                  ? compact
+                    ? "text-2xl"
+                    : "text-3xl sm:text-4xl"
+                  : effect.shakeLevel === 1
+                    ? compact
+                      ? "text-xl"
+                      : "text-2xl sm:text-3xl"
+                    : compact
+                      ? "text-lg"
+                      : "text-2xl"
               } ${isEnemyGuard ? "text-[#69A3D9]" : effect.colorClass}`}
             >
               {isEnemyGuard ? `+${effect.amountText}` : `-${effect.amountText}`}

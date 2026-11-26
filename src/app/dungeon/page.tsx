@@ -11,12 +11,14 @@ import {
   ChevronDown,
   ChevronRight,
   Compass,
+  Download,
   FileText,
   Flame,
   Heart,
   Layers,
   Loader2,
   RotateCcw,
+  Share2,
   Shield,
   Shuffle,
   Skull,
@@ -69,6 +71,12 @@ import {
   type StartRunOptions,
 } from "@/lib/battleEngine";
 import { submitRankingScore } from "@/lib/rankings";
+import {
+  buildRunShareText,
+  downloadRunShareImage,
+  openXShareIntent,
+} from "@/lib/shareUtils";
+import { playCombatSound } from "@/lib/soundFx";
 import {
   applyDeckPresetInSave,
   applyMiningPackToSave,
@@ -523,10 +531,18 @@ export default function DungeonPage() {
         kind: isPierce ? "pierce" : "attack",
         amountText: fmt.text,
         subLabel,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: fmt.colorClass,
         shakeLevel: fmt.shakeLevel,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
+        isLethal,
+      });
+      playCombatSound({
+        kind: isPierce ? "pierce" : "attack",
+        shakeLevel: fmt.shakeLevel,
+        retriggers: out.retriggers,
         isLethal,
       });
     } else if (out && (out.role === "guard" || out.didShield)) {
@@ -534,20 +550,26 @@ export default function DungeonPage() {
       emitCombatFx({
         kind: "guard",
         amountText: fmt.text,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: "text-[#69A3D9]",
         shakeLevel: 0,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
       });
+      playCombatSound({ kind: "guard", shakeLevel: 0 });
     } else if (out) {
       emitCombatFx({
         kind: "skill",
         amountText: `${out.cardTerm} 発動`,
+        cardTerm: out.cardTerm,
+        cardRank: playedCard?.rank,
         colorClass: "text-[#E3B94E]",
         shakeLevel: 0,
         retriggers: out.retriggers,
         attribute: playedCard?.attribute,
       });
+      playCombatSound({ kind: "skill", shakeLevel: 0 });
     }
 
     setSelectedCardId(null);
@@ -591,13 +613,15 @@ export default function DungeonPage() {
     if (prevIntent.type === "attack" || prevIntent.type === "heavy_attack") {
       const dmgTaken = Math.max(0, prevIntent.value - run.playerShield);
       if (dmgTaken > 0) {
+        const enemyShake: 0 | 1 | 2 | 3 = prevIntent.type === "heavy_attack" ? 2 : 1;
         emitCombatFx({
           kind: "enemy_attack",
           amountText: formatJapaneseNumber(dmgTaken).text,
           colorClass: "text-[#F7B5AD]",
-          shakeLevel: prevIntent.type === "heavy_attack" ? 2 : 1,
+          shakeLevel: enemyShake,
           retriggers: 1,
         });
+        playCombatSound({ kind: "enemy_attack", shakeLevel: enemyShake });
       } else {
         emitCombatFx({
           kind: "enemy_blocked",
@@ -606,6 +630,7 @@ export default function DungeonPage() {
           shakeLevel: 0,
           retriggers: 1,
         });
+        playCombatSound({ kind: "enemy_blocked", shakeLevel: 0 });
       }
     } else if (prevIntent.type === "defend") {
       emitCombatFx({
@@ -615,6 +640,7 @@ export default function DungeonPage() {
         shakeLevel: 0,
         retriggers: 1,
       });
+      playCombatSound({ kind: "enemy_guard", shakeLevel: 0 });
     }
 
     setRun(nextRun);
@@ -1407,10 +1433,25 @@ export default function DungeonPage() {
                     : { x: 0, y: 0 }
                 }
                 transition={{ duration: 0.32 }}
-                className={`kaku-frame stage-grid flex flex-col gap-1.5 p-2.5 lg:hidden ${
+                className={`kaku-frame stage-grid relative flex flex-col gap-1.5 overflow-hidden p-2.5 lg:hidden ${
                   pendingVictoryRun ? "cursor-pointer" : ""
                 }`}
               >
+                <AnimatePresence>
+                  {activeCombatFx &&
+                    (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                    (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal) && (
+                      <motion.div
+                        key={`m_flash_${activeCombatFx.id}`}
+                        aria-hidden="true"
+                        initial={{ opacity: 0.65 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.36, ease: "easeOut" }}
+                        className="pointer-events-none absolute inset-0 z-10 bg-radial from-[#F4D06F]/35 via-[#E05A47]/15 to-transparent"
+                      />
+                    )}
+                </AnimatePresence>
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                   <div className="inline-flex items-center gap-1 border border-[#5C3530] bg-[#241212] px-1.5 py-0.5 font-mono text-[10px] text-[#E05A47]">
                     <AlertOctagon className="h-3 w-3 shrink-0" />
@@ -1517,10 +1558,25 @@ export default function DungeonPage() {
                     : { x: 0, y: 0 }
                 }
                 transition={{ duration: 0.34 }}
-                className={`kaku-frame stage-grid hidden flex-col items-center p-4 lg:flex ${
+                className={`kaku-frame stage-grid relative hidden flex-col items-center overflow-hidden p-4 lg:flex ${
                   pendingVictoryRun ? "cursor-pointer" : ""
                 }`}
               >
+                <AnimatePresence>
+                  {activeCombatFx &&
+                    (activeCombatFx.kind === "attack" || activeCombatFx.kind === "pierce") &&
+                    (activeCombatFx.shakeLevel >= 2 || activeCombatFx.isLethal) && (
+                      <motion.div
+                        key={`pc_flash_${activeCombatFx.id}`}
+                        aria-hidden="true"
+                        initial={{ opacity: 0.65 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.38, ease: "easeOut" }}
+                        className="pointer-events-none absolute inset-0 z-10 bg-radial from-[#F4D06F]/35 via-[#E05A47]/15 to-transparent"
+                      />
+                    )}
+                </AnimatePresence>
                 {/* Enemy Next Intent */}
                 <div className="mb-2 flex items-center gap-2 border border-[#5C3530] bg-[#241212] px-3 py-1 font-mono text-xs text-[#E05A47]">
                   <AlertOctagon className="h-3.5 w-3.5 shrink-0" />
@@ -2711,6 +2767,43 @@ export default function DungeonPage() {
                 凱旋して記録を残す
               </button>
             </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-[#2E2822] pt-3">
+              <button
+                type="button"
+                onClick={() =>
+                  openXShareIntent(
+                    buildRunShareText({
+                      stageName: run.stageName,
+                      floor: run.floor,
+                      maxDamage: run.maxDamageDealt,
+                      cleared: true,
+                      relicCount: run.relicIds.length,
+                    })
+                  )
+                }
+                className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-3.5 py-2 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#352A14]"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>踏破結果をXでポスト</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadRunShareImage({
+                    stageName: run.stageName,
+                    floor: run.floor,
+                    maxDamage: run.maxDamageDealt,
+                    cleared: true,
+                    relicCount: run.relicIds.length,
+                    aceTerm: save.aceTerm,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-3.5 py-2 font-mono text-xs font-bold text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E]"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>戦績画像を保存</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -2732,14 +2825,51 @@ export default function DungeonPage() {
                 </strong>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setRun(null)}
-              className="inline-flex items-center gap-2 border border-[#8A7348] bg-[#1A1620] px-6 py-2.5 font-serif text-sm font-bold text-[#ECE6D8] hover:border-[#D4AF37]"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>ロビーへ戻る</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  openXShareIntent(
+                    buildRunShareText({
+                      stageName: run.stageName,
+                      floor: run.floor,
+                      maxDamage: run.maxDamageDealt,
+                      cleared: run.isEndless,
+                      relicCount: run.relicIds.length,
+                    })
+                  )
+                }
+                className="inline-flex items-center gap-1.5 border border-[#8A7348] bg-[#261E0E] px-4 py-2.5 font-mono text-xs font-bold text-[#F4D06F] hover:border-[#D4AF37] hover:bg-[#352A14]"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>戦績をXでポスト</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadRunShareImage({
+                    stageName: run.stageName,
+                    floor: run.floor,
+                    maxDamage: run.maxDamageDealt,
+                    cleared: run.isEndless,
+                    relicCount: run.relicIds.length,
+                    aceTerm: save.aceTerm,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 border border-[#3A332A] bg-[#141218] px-4 py-2.5 font-mono text-xs font-bold text-[#CFC8B8] hover:border-[#8A7348] hover:text-[#E3B94E]"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>画像保存</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRun(null)}
+                className="inline-flex items-center gap-2 border border-[#8A7348] bg-[#1A1620] px-6 py-2.5 font-serif text-sm font-bold text-[#ECE6D8] hover:border-[#D4AF37]"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>ロビーへ戻る</span>
+              </button>
+            </div>
           </div>
         )}
       </section>
