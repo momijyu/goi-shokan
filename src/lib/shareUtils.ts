@@ -18,6 +18,39 @@ const RANK_ORDER: Record<Rank, number> = {
   F: 1,
 };
 
+/**
+ * Creator X attribution & launch quote-post config.
+ * Set via NEXT_PUBLIC_* env vars (Cloudflare Pages / Vercel) or edit directly here.
+ */
+const DEFAULT_X_CREATOR_HANDLE = "";
+const DEFAULT_X_PROMO_POST_URL = "";
+
+export function getXCreatorHandle(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_X_CREATOR_HANDLE?.trim() ||
+    DEFAULT_X_CREATOR_HANDLE;
+  return raw.replace(/^@+/, "");
+}
+
+export function getXCreatorProfileUrl(): string {
+  const handle = getXCreatorHandle();
+  return handle ? `https://x.com/${handle}` : "";
+}
+
+export function getXPromoPostUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_X_PROMO_POST_URL?.trim() ||
+    DEFAULT_X_PROMO_POST_URL
+  );
+}
+
+function buildShareTagsFooter(): string {
+  const handle = getXCreatorHandle();
+  return handle
+    ? `制作: @${handle} #語彙召喚 #ブラウザゲーム`
+    : "#語彙召喚 #ブラウザゲーム";
+}
+
 export function getShareSiteUrl(): string {
   if (typeof window === "undefined") return "";
   return window.location.origin;
@@ -27,9 +60,14 @@ export function openXShareIntent(text: string, includeUrl = true): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams({ text });
   if (includeUrl) {
-    const siteUrl = getShareSiteUrl();
-    if (siteUrl && !siteUrl.includes("localhost")) {
-      params.set("url", siteUrl);
+    const promoPostUrl = getXPromoPostUrl();
+    if (promoPostUrl) {
+      params.set("url", promoPostUrl);
+    } else {
+      const siteUrl = getShareSiteUrl();
+      if (siteUrl && !siteUrl.includes("localhost")) {
+        params.set("url", siteUrl);
+      }
     }
   }
   const intentUrl = `https://x.com/intent/tweet?${params.toString()}`;
@@ -55,7 +93,7 @@ export function buildMiningShareText(
       ? "まさかの『不』ランク出現ｗ"
       : "文章から言霊カードを生成！";
 
-  return `${hook}\n${topLabels} など${pack.length}枚を採掘（全${totalExtractedWords}語抽出）\n文章で戦うブラウザローグライク「語彙召喚(仮)」\n#語彙召喚 #ブラウザゲーム`;
+  return `${hook}\n${topLabels} など${pack.length}枚を採掘（全${totalExtractedWords}語抽出）\n文章で戦うブラウザローグライク「語彙召喚(仮)」\n${buildShareTagsFooter()}`;
 }
 
 export function buildRunShareText(params: {
@@ -69,7 +107,7 @@ export function buildRunShareText(params: {
   const statusText = params.cleared
     ? `『${params.stageName}』踏破！`
     : `『${params.stageName}』第${params.floor}階まで到達！`;
-  return `${statusText}\n最大一撃【${dmgText}】／ 獲得遺物 ${params.relicCount}個\n文章からデッキを組むローグライク「語彙召喚(仮)」\n#語彙召喚 #ブラウザゲーム`;
+  return `${statusText}\n最大一撃【${dmgText}】／ 獲得遺物 ${params.relicCount}個\n文章からデッキを組むローグライク「語彙召喚(仮)」\n${buildShareTagsFooter()}`;
 }
 
 function triggerCanvasPngDownload(canvas: HTMLCanvasElement, filename: string): void {

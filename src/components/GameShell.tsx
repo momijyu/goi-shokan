@@ -31,6 +31,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatJapaneseNumber } from "@/lib/bignum";
+import { getXCreatorHandle, getXCreatorProfileUrl } from "@/lib/shareUtils";
 import {
   isSoundMuted,
   subscribeSoundMute,
@@ -423,6 +424,16 @@ export function GameShell({ children }: { children: React.ReactNode }) {
             辞書・語釈：kuromoji (Apache-2.0) / IPAdic (NAIST・ICOT) / SudachiDict (Apache-2.0) / 日本語WordNet (NICT)
           </span>
           <div className="flex flex-wrap items-center gap-3">
+            {getXCreatorProfileUrl() && (
+              <a
+                href={getXCreatorProfileUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[#E3B94E]"
+              >
+                制作: @{getXCreatorHandle()} (X)
+              </a>
+            )}
             <a
               href="/THIRD_PARTY_NOTICES.txt"
               target="_blank"
