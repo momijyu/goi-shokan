@@ -10,6 +10,7 @@ import { getRelicDef } from "@/data/relics";
 import { formatJapaneseNumber, getTodayJstDateKey } from "@/lib/bignum";
 import {
   fetchRankings,
+  GAME_RANKING_VERSION,
   getHistoryDailyDate,
   getRunRankingGenre,
   isRankingConfigured,
@@ -227,6 +228,9 @@ export default function RecordsPage() {
                 <h2 className="font-serif text-lg font-bold text-[#F2ECE0]">
                   オンラインランキング
                 </h2>
+                <span className="border border-[#5A4722] bg-[#1E170A] px-2 py-0.5 font-mono text-[10px] font-bold text-[#E3B94E]">
+                  v{GAME_RANKING_VERSION}
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
