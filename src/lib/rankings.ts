@@ -3,6 +3,8 @@
 import { getTodayJstDateKey } from "@/lib/bignum";
 import type { RunHistoryEntry } from "@/types/game";
 
+export const GAME_RANKING_VERSION = "1.0.0";
+
 export type RankingGenre = "all" | "standard" | "daily" | "random" | "impromptu";
 
 export const RANKING_GENRE_META: {
@@ -65,6 +67,7 @@ export interface RankingEntry {
   reachedFloor: number;
   maxDamage: number;
   relicIds: string[];
+  gameVersion: string;
   createdAt: string;
 }
 
@@ -81,6 +84,7 @@ interface RawRankingRow {
   is_inf: boolean;
   max_damage: number;
   relic_ids: string[] | null;
+  game_version?: string | null;
   created_at: string;
 }
 
@@ -124,6 +128,27 @@ export interface SubmitRankingInput {
   reachedFloor: number;
   maxDamage: number;
   relicIds: string[];
+  gameVersion?: string;
+}
+
+async function formatSupabaseHttpError(
+  res: Response,
+  stageId?: string
+): Promise<string> {
+  if (res.status === 400) {
+    try {
+      const body = await res.text();
+      if (body.includes("game_version")) {
+        return "HTTP 400（Supabase側のバージョン列マイグレーション未適用）";
+      }
+    } catch {
+      // Ignore response read failure and fall back below
+    }
+    if (stageId === "stage_random" || stageId === "stage_impromptu") {
+      return "HTTP 400（Supabase側の特殊迷宮制約マイグレーション未適用）";
+    }
+  }
+  return `HTTP ${res.status}`;
 }
 
 export async function submitRankingScore(
@@ -156,6 +181,7 @@ export async function submitRankingScore(
     is_inf: isInf,
     max_damage: numericDamage,
     relic_ids: input.relicIds.slice(0, 100),
+    game_version: input.gameVersion?.trim() || GAME_RANKING_VERSION,
   };
 
   try {
@@ -167,16 +193,10 @@ export async function submitRankingScore(
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      if (
-        res.status === 400 &&
-        (input.stageId === "stage_random" || input.stageId === "stage_impromptu")
-      ) {
-        return {
-          ok: false,
-          error: "HTTP 400（Supabase側の特殊迷宮制約マイグレーション未適用）",
-        };
-      }
-      return { ok: false, error: `HTTP ${res.status}` };
+      return {
+        ok: false,
+        error: await formatSupabaseHttpError(res, input.stageId),
+      };
     }
     return { ok: true };
   } catch {
@@ -257,6 +277,7 @@ export async function fetchRankings(options?: {
   dailyScope?: "today" | "all";
   dailyDate?: string;
   stageId?: string;
+  version?: string | "all";
   limit?: number;
 }): Promise<{ entries: RankingEntry[]; error?: string }> {
   const cfg = getSupabaseConfig();
@@ -264,10 +285,15 @@ export async function fetchRankings(options?: {
 
   const params = new URLSearchParams({
     select:
-      "id,run_id,player_name,stage_id,stage_name,is_daily,daily_date,cleared,reached_floor,is_inf,max_damage,relic_ids,created_at",
+      "id,run_id,player_name,stage_id,stage_name,is_daily,daily_date,cleared,reached_floor,is_inf,max_damage,relic_ids,game_version,created_at",
     order: "is_inf.desc,max_damage.desc,reached_floor.desc,created_at.asc",
     limit: String(options?.limit ?? 50),
   });
+
+  const versionFilter = options?.version ?? GAME_RANKING_VERSION;
+  if (versionFilter !== "all") {
+    params.append("game_version", `eq.${versionFilter}`);
+  }
 
   const genre = options?.genre ?? "all";
   if (genre === "daily") {
@@ -299,7 +325,7 @@ export async function fetchRankings(options?: {
       cache: "no-store",
     });
     if (!res.ok) {
-      return { entries: [], error: `HTTP ${res.status}` };
+      return { entries: [], error: await formatSupabaseHttpError(res) };
     }
     const rows = (await res.json()) as RawRankingRow[];
     const entries: RankingEntry[] = rows.map((row) => ({
@@ -314,6 +340,7 @@ export async function fetchRankings(options?: {
       reachedFloor: row.reached_floor,
       maxDamage: row.is_inf ? Infinity : row.max_damage,
       relicIds: Array.isArray(row.relic_ids) ? row.relic_ids : [],
+      gameVersion: row.game_version ?? "legacy",
       createdAt: row.created_at,
     }));
     return { entries };

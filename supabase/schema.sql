@@ -23,11 +23,17 @@ create table if not exists public.rankings (
     jsonb_typeof(relic_ids) = 'array'
     and jsonb_array_length(relic_ids) <= 100
   ),
+  game_version text not null default '1.0.0' check (
+    char_length(btrim(game_version)) between 1 and 24
+  ),
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_rankings_overall
   on public.rankings (is_inf desc, max_damage desc, reached_floor desc, created_at asc);
+
+create index if not exists idx_rankings_version_overall
+  on public.rankings (game_version, is_inf desc, max_damage desc, reached_floor desc, created_at asc);
 
 create index if not exists idx_rankings_daily
   on public.rankings (is_daily, daily_date, is_inf desc, max_damage desc, reached_floor desc, created_at asc);
@@ -59,4 +65,5 @@ create policy "rankings_insert_public"
     and reached_floor between 1 and 9999
     and max_damage >= 0
     and max_damage <= 1.79e308
+    and char_length(btrim(game_version)) between 1 and 24
   );
